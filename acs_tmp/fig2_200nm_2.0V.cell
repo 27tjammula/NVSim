@@ -1,58 +1,58 @@
-# AlScN ferroelectric diode crossbar cell - 1 um diameter device
+# AlScN ferroelectric diode crossbar cell - 200 nm diameter device
 # Stack: Ti/Au | 4nm HfOx | 10nm AlScN | 50nm Al
 # Fixed inputs from PPT: ON/OFF = 4x10^3, AlScN (Sc 32%), 2KB demo target, tFE=10nm
 #
 # Geometry:
-#   d = 1 um, r = 500 nm
-#   A = pi*r^2 = 7.8539816e-13 m^2 = 0.785398 um^2
-#   CellArea(F^2) at 32nm node: A / (0.032um)^2 = 767.00
+#   d = 200 nm, r = 100 nm
+#   A = pi*r^2 = 3.1415927e-14 m^2 = 0.031416 um^2
+#   CellArea(F^2) at 32nm node: A / (0.032um)^2 = 30.68
 #
 # Read-point scaling from 100nm baseline (same current density):
 #   Vread = 0.2 V
-#   Iread_on = 20 uA => Ron = 10 kohm
-#   Roff = Ron * 4e3 = 40 Mohm
+#   Iread_on = 0.8 uA => Ron = 250 kohm
+#   Roff = Ron * 4e3 = 1 Gohm
 #
 # Junction capacitance model requested:
-#   C_fwd = eps0 * epsFE * A / tFE = 6.955e-15 F
-#   C_rev = 0.5 * C_fwd = 3.477e-15 F
+#   C_fwd = eps0 * epsFE * A / tFE = 2.782e-16 F
+#   C_rev = 0.5 * C_fwd = 1.391e-16 F
 #
 # Write energy (provided directly, bypass CalculateWriteEnergy):
-#   E_switch = 2 * Pr * Ec * tFE * A = 589.049 fJ
-#   E_charge = C_fwd * Vwrite^2 = 62.595 fJ
-#   E_total  = 651.644 fJ = 0.651644 pJ
-#   Area scaling check vs 100nm: 100x
+#   E_switch = 2 * Pr * Ec * tFE * A = 23.562 fJ
+#   E_charge = C_fwd * Vwrite^2 = 2.504 fJ
+#   E_total  = 26.066 fJ = 0.026066 pJ
+#   Area scaling check vs 100nm: 4x
 
 -MemCellType: FeDiode
 
--CellArea (F^2): 767.00
+-CellArea (F^2): 30.68
 -CellAspectRatio: 1
 
 -ProcessNode: 32
 
--ResistanceOn (ohm): 1e4
--ResistanceOff (ohm): 4e7
+-ResistanceOn (ohm): 2.5e5
+-ResistanceOff (ohm): 1e9
 
 -ReadMode: current
 -ReadVoltage (V): 0.2
--ReadCurrent (uA): 20
+-ReadCurrent (uA): 0.8
 -ReadPower (uW): 0.0
 -MinSenseVoltage (mV): 20
 
 -ResetMode: voltage
--ResetVoltage (V): 3.0
+-ResetVoltage (V): 2.0
 -ResetPulse (ns): 10
--ResetEnergy (pJ): 0.651644
+-ResetEnergy (pJ): 0.0246745714
 
 -SetMode: voltage
--SetVoltage (V): -3.0
+-SetVoltage (V): -2.0
 -SetPulse (ns): 10
--SetEnergy (pJ): 0.651644
+-SetEnergy (pJ): 0.0246745714
 
 -AccessType: None
 -VoltageDropAccessDevice (V): 0
 
--CapacitanceFeDiode (F): 6.955e-15
--CapacitanceFeDiodeReverse (F): 3.477e-15
+-CapacitanceFeDiode (F): 2.782e-16
+-CapacitanceFeDiodeReverse (F): 1.391e-16
 
 -PolarizationRemnant (uC/cm^2): 15.0
 -PolarizationSpontaneous (uC/cm^2): 18.0

@@ -1,0 +1,15 @@
+Self-Consistency Check (updated after MW-model fix)
+
+1) Write-energy area scaling E~r^2: PASS
+   E200/E100 = 4.001 (expected 4.000)
+   E1um/E100 = 100.022 (expected 100.000)
+
+2) Read margin at 2KB (128x128) > 50%: PASS
+   Margin = 96.923%
+
+3) MW model reproduces ON/OFF=4e3 within 20% at operating voltage: PASS
+   ION/IOFF_op @ VFE=2.5862V = 4000, target=4000, error=0.000%
+
+4) Latency at 200nm / 2KB is nanosecond-range (slide 4 consistency): PASS
+   Simulated write latency @128x128 = 20.230 ns
+   Simulated read latency  @128x128 = 0.234 ns

@@ -41,12 +41,12 @@
 -ResetMode: voltage
 -ResetVoltage (V): 3.0
 -ResetPulse (ns): 10
--ResetEnergy (pJ): 0.651644
+-ResetEnergy (pJ): 0.651633861
 
 -SetMode: voltage
 -SetVoltage (V): -3.0
 -SetPulse (ns): 10
--SetEnergy (pJ): 0.651644
+-SetEnergy (pJ): 0.651633861
 
 -AccessType: None
 -VoltageDropAccessDevice (V): 0

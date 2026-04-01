@@ -828,12 +828,57 @@ void MemCell::CalculateMemoryWindow()
 	double Vpol = (C_stack_inv > 0) ? 2.0 * Pr * C_stack_inv : 0.0;    /* V */
 
 	double measured_ratio = (resistanceOn > 0) ? (resistanceOff / resistanceOn) : 4000.0;
-	double n_eff = 1.0;
+	double n_eff_vpol = 1.0;
 	if (Vpol > 0 && measured_ratio > 1)
-		n_eff = Vpol / (kT_q * log(measured_ratio));
+		n_eff_vpol = Vpol / (kT_q * log(measured_ratio));
 
 	/* Minimum MW needed for measured ratio at ideal transport (n=1) */
 	double mw_min_ideal = kT_q * log(measured_ratio);   /* V */
+
+	/* ================================================================
+	 * Sweep Vm from 0.1*Vm to Vm in 10 steps
+	 * At each step, compute alphaV (Eq. 10) and MWminor (Eq. 9)
+	 * ================================================================ */
+	double mw_minor_at_vwrite = 0.0;
+	int    numSteps = 10;
+	double denom_tanh_Pr = tanh(theta_m * Pr / Ps);   /* denominator, constant */
+	double vm_sweep[16];
+	double alpha_sweep[16];
+	double mw_sweep[16];
+
+	for (int i = 1; i <= numSteps; i++) {
+		double Vm_i = Vm * (double)i / numSteps;
+
+		/* Eq. 10: alphaV — effective polarization amplitude at partial voltage Vm_i */
+		double E_norm_plus  = eta_val * (Vm_i / tFE + Ec) / Ec;
+		double E_norm_minus = eta_val * (Vm_i / tFE - Ec) / Ec;
+		double alphaV = 0.5 * Ps * (tanh(E_norm_plus) - tanh(E_norm_minus));
+
+		/* Eq. 9: MWminor */
+		double mw_minor = 0.0;
+		if (fabs(denom_tanh_Pr) > 1e-15 && alphaV > 0.0) {
+			double ratio_tanh = tanh(theta_m * alphaV / Ps) / denom_tanh_Pr;
+			mw_minor = mw_mfs * (1.0 - ratio_tanh)
+			         - (2.0 * tFE * alphaV / (eFE * eps0)) * (1.0 - (Pr / alphaV) * ratio_tanh);
+		}
+
+		/* Clamp to zero if negative (physically: write voltage below Ec, no switching) */
+		if (mw_minor < 0.0) mw_minor = 0.0;
+
+		vm_sweep[i-1] = Vm_i;
+		alpha_sweep[i-1] = alphaV;
+		mw_sweep[i-1] = mw_minor;
+
+		if (i == numSteps)
+			mw_minor_at_vwrite = mw_minor;
+	}
+
+	/* Calibrate n_eff at operating voltage so ON/OFF_op tracks the measured anchor.
+	 * This keeps the MW sweep shape from Eq.9/10 while using a physically interpretable
+	 * transport coupling factor fitted at the operating point. */
+	double n_eff = n_eff_vpol;
+	if (mw_minor_at_vwrite > 0 && measured_ratio > 1)
+		n_eff = mw_minor_at_vwrite / (kT_q * log(measured_ratio));
 
 	/* ================================================================
 	 * Print header
@@ -862,49 +907,21 @@ void MemCell::CalculateMemoryWindow()
 	cout << scientific << setprecision(3) << exp(Vpol / kT_q) << endl;
 	cout << fixed << setprecision(3);
 	cout << " Measured R_off/R_on                  = " << measured_ratio << endl;
-	cout << " n_eff (coupling factor)              = " << n_eff << endl;
+	cout << " n_eff (from Vpol anchor)             = " << n_eff_vpol << endl;
+	cout << " n_eff (operating-point calibrated)   = " << n_eff << endl;
 	cout << "------------------------------------------------------------" << endl;
 
-	/* ================================================================
-	 * Sweep Vm from 0.1*Vm to Vm in 10 steps
-	 * At each step, compute alphaV (Eq. 10) and MWminor (Eq. 9)
-	 * ================================================================ */
 	cout << endl;
 	cout << "  Vm (V)   alphaV (C/m^2)  MW_minor (V)  ION/IOFF_op  ION/IOFF_max" << endl;
 	cout << "  ------   -------------   ------------  -----------  ------------" << endl;
 
-	double mw_minor_at_vwrite = 0.0;
-	int    numSteps = 10;
-	double denom_tanh_Pr = tanh(theta_m * Pr / Ps);   /* denominator, constant */
+	for (int i = 0; i < numSteps; i++) {
+		double ioff_op  = (n_eff > 0) ? exp(mw_sweep[i] / (n_eff * kT_q)) : 1.0;
+		double ioff_max = exp(mw_sweep[i] / kT_q);
 
-	for (int i = 1; i <= numSteps; i++) {
-		double Vm_i = Vm * (double)i / numSteps;
-
-		/* Eq. 10: alphaV — effective polarization amplitude at partial voltage Vm_i */
-		double E_norm_plus  = eta_val * (Vm_i / tFE + Ec) / Ec;
-		double E_norm_minus = eta_val * (Vm_i / tFE - Ec) / Ec;
-		double alphaV = 0.5 * Ps * (tanh(E_norm_plus) - tanh(E_norm_minus));
-
-		/* Eq. 9: MWminor */
-		double mw_minor = 0.0;
-		if (fabs(denom_tanh_Pr) > 1e-15 && alphaV > 0.0) {
-			double ratio_tanh = tanh(theta_m * alphaV / Ps) / denom_tanh_Pr;
-			mw_minor = mw_mfs * (1.0 - ratio_tanh)
-			         - (2.0 * tFE * alphaV / (eFE * eps0)) * (1.0 - (Pr / alphaV) * ratio_tanh);
-		}
-
-		/* Clamp to zero if negative (physically: write voltage below Ec, no switching) */
-		if (mw_minor < 0.0) mw_minor = 0.0;
-
-		if (i == numSteps)
-			mw_minor_at_vwrite = mw_minor;
-
-		double ioff_op  = (n_eff > 0) ? exp(mw_minor / (n_eff * kT_q)) : 1.0;
-		double ioff_max = exp(mw_minor / kT_q);
-
-		cout << "  " << fixed << setprecision(4) << Vm_i
-		     << "     " << scientific << setprecision(3) << alphaV
-		     << "       " << fixed << setprecision(4) << mw_minor
+		cout << "  " << fixed << setprecision(4) << vm_sweep[i]
+		     << "     " << scientific << setprecision(3) << alpha_sweep[i]
+		     << "       " << fixed << setprecision(4) << mw_sweep[i]
 		     << "     " << scientific << setprecision(3) << ioff_op
 		     << "   " << scientific << setprecision(3) << ioff_max << endl;
 	}

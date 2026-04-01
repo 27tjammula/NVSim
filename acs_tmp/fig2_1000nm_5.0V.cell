@@ -39,14 +39,14 @@
 -MinSenseVoltage (mV): 20
 
 -ResetMode: voltage
--ResetVoltage (V): 3.0
+-ResetVoltage (V): 5.0
 -ResetPulse (ns): 10
--ResetEnergy (pJ): 0.651644
+-ResetEnergy (pJ): 0.762896506
 
 -SetMode: voltage
--SetVoltage (V): -3.0
+-SetVoltage (V): -5.0
 -SetPulse (ns): 10
--SetEnergy (pJ): 0.651644
+-SetEnergy (pJ): 0.762896506
 
 -AccessType: None
 -VoltageDropAccessDevice (V): 0
