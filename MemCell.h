@@ -112,6 +112,17 @@ public:
 	double resistanceOffAtHalfReadVoltage; /* High resistance state when 1/2 read voltage is applied */
 	double resistanceOnAtHalfResetVoltage; /* Low resistance state when 1/2 reset voltage is applied */
 
+	/* For FeDiode (two-terminal ferroelectric diode crossbar) */
+	double capacitanceFeDiode;          /* Junction capacitance, forward-biased selected cell, Unit: F */
+	double capacitanceFeDiodeReverse;   /* Junction capacitance, reverse-biased unselected cell, Unit: F */
+	double polarizationRemnant;         /* Remnant polarization Pr, Unit: uC/cm^2 */
+	double polarizationSpontaneous;     /* Spontaneous polarization Ps, Unit: uC/cm^2 */
+	double coerciveField;               /* Coercive field Ec, Unit: MV/cm */
+	double ferroelectricThickness;      /* Ferroelectric layer thickness tFE, Unit: nm */
+	double interlayerThickness;         /* Interlayer (interfacial) thickness tIL, Unit: nm */
+	double interlayerPermittivity;      /* Relative permittivity of interlayer eIL (dimensionless) */
+	double ferroelectricPermittivity;   /* Relative permittivity of ferroelectric layer eFE (dimensionless) */
+
 	/* For NAND flash */
 	double flashEraseVoltage;		/* The erase voltage, Unit: V, highest W/E voltage in ITRS sheet */
 	double flashPassVoltage;		/* The voltage applied on the unselected wordline within the same block during programming, Unit: V */

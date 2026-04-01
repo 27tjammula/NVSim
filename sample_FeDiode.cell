@@ -1,0 +1,38 @@
+-MemCellType: FeDiode
+
+-CellArea (F^2): 4
+-CellAspectRatio: 1
+
+-ProcessNode: 32
+
+-ResistanceOn (ohm): 1e6
+-ResistanceOff (ohm): 4e9
+
+-ReadMode: current
+-ReadVoltage (V): 0.2
+-ReadCurrent (uA): 0.2
+-ReadPower (uW): 0.0
+-MinSenseVoltage (mV): 20
+
+-ResetMode: voltage
+-ResetVoltage (V): 3.0
+-ResetPulse (ns): 10
+-ResetEnergy (pJ): 0.1
+
+-SetMode: voltage
+-SetVoltage (V): -3.0
+-SetPulse (ns): 10
+-SetEnergy (pJ): 0.1
+
+-AccessType: None
+
+-CapacitanceFeDiode (F): 1e-16
+-CapacitanceFeDiodeReverse (F): 5e-17
+
+-PolarizationRemnant (uC/cm^2): 15.0
+-PolarizationSpontaneous (uC/cm^2): 18.0
+-CoerciveField (MV/cm): 2.5
+-FerroelectricThickness (nm): 10
+-InterlayerThickness (nm): 4
+-InterlayerPermittivity: 20
+-FerroelectricPermittivity: 30

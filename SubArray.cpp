@@ -104,7 +104,7 @@ void SubArray::Initialize(long long _numRow, long long _numColumn, bool _multipl
 		}
 	}
 
-	if (cell->memCellType == memristor || cell->memCellType == FBRAM) {
+	if (cell->memCellType == memristor || cell->memCellType == FBRAM || cell->memCellType == FeDiode) {
 		if (internalSenseAmp && muxSenseAmp < 2) {
 			/* There is no way to put the sense amp */
 			invalid = true;
@@ -123,7 +123,7 @@ void SubArray::Initialize(long long _numRow, long long _numColumn, bool _multipl
 		maxBitlineCurrent = MAX(cell->resetCurrent, cell->setCurrent) + cell->leakageCurrentAccessDevice * (numRow - 1);
 	}
 
-	if (cell->memCellType == MRAM || cell->memCellType == PCRAM || cell->memCellType == memristor) {
+	if (cell->memCellType == MRAM || cell->memCellType == PCRAM || cell->memCellType == memristor || cell->memCellType == FeDiode) {
 		if (cell->accessType == CMOS_access){
 			if (tech->currentOnNmos[inputParameter->temperature - 300]
 									/ tech->currentOffNmos[inputParameter->temperature - 300] < numRow / BITLINE_LEAKAGE_TOLERANCE) {
@@ -153,30 +153,61 @@ void SubArray::Initialize(long long _numRow, long long _numColumn, bool _multipl
 		//			return;
 		//		}
 		//	}
-			/* Write half select problem limit the array size */
+
+			/* Leakage/rectification validity check for non-CMOS access */
+			if (cell->memCellType == FeDiode) {
+				/* Use the diode off/on resistance ratio in place of the NMOS on/off current
+				 * ratio.  A FeDiode's reverse current is ~V_half/R_off, so the ratio
+				 * R_off/R_on must be large enough relative to the number of rows to keep
+				 * half-selected reverse-biased leakage below tolerance. */
+				if (cell->resistanceOff / cell->resistanceOn < numRow / BITLINE_LEAKAGE_TOLERANCE) {
+					/* diode rectification ratio insufficient for this array depth */
+					invalid = true;
+					initialized = true;
+					return;
+				}
+			}
+
+			/* Write half-select sneak current limits the array size */
 			double resetCurrent;
-			if (cell->resetCurrent == 0) {
+			if (cell->memCellType == FeDiode) {
+				/* resistanceOnAtResetVoltage is a memristor-specific field not populated for FeDiode.
+				 * Derive write current from resistanceOn (= full device LRS resistance). */
+				resetCurrent = (cell->resetCurrent > 0) ? cell->resetCurrent
+				                                        : fabs(cell->resetVoltage) / cell->resistanceOn;
+			} else if (cell->resetCurrent == 0) {
 				resetCurrent = (fabs (cell->resetVoltage) - cell->voltageDropAccessDevice) / cell->resistanceOnAtResetVoltage;
-			} else
+			} else {
 				resetCurrent = cell->resetCurrent;
+			}
 			int numSelectedColumnPerRow = numColumn / muxSenseAmp / muxOutputLev1 / muxOutputLev2;
-			if (cell->accessType == none_access) {
+
+			if (cell->memCellType == FeDiode) {
+				/* Self-rectifying FeDiode crossbar: half-selected cells on the same WL and BL
+				 * are reverse-biased at Vwrite/2.  Their leakage is Vwrite/2 / R_off, which
+				 * replaces the ohmic resistanceOnAtHalfResetVoltage term used for pure
+				 * resistive (memristor) crossbars. */
+				double Vhalf = fabs(cell->resetVoltage) / 2.0;
+				maxWordlineCurrent = resetCurrent * numSelectedColumnPerRow
+						+ (Vhalf / cell->resistanceOff) * (numColumn - numSelectedColumnPerRow);
+				maxBitlineCurrent  = resetCurrent
+						+ (Vhalf / cell->resistanceOff) * (numRow - 1);
+			} else if (cell->accessType == none_access) {
+				/* Ohmic crossbar (memristor): sneak current through LRS cell at half voltage */
 				maxWordlineCurrent = resetCurrent * numSelectedColumnPerRow + resetCurrent * cell->resistanceOnAtResetVoltage
 						/ 2 / cell->resistanceOnAtHalfResetVoltage * (numColumn - numSelectedColumnPerRow);
+				maxBitlineCurrent = resetCurrent + resetCurrent * cell->resistanceOnAtResetVoltage / 2
+						/ cell->resistanceOnAtHalfResetVoltage * (numRow - 1);
 			} else { //diode or BJT
 				maxWordlineCurrent = resetCurrent * numSelectedColumnPerRow + cell->leakageCurrentAccessDevice
 						* (numColumn - numSelectedColumnPerRow);
+				maxBitlineCurrent = resetCurrent + cell->leakageCurrentAccessDevice * (numRow - 1);
 			}
+
 			double minWordlineDriverWidth = maxWordlineCurrent / tech->currentOnNmos[inputParameter->temperature - 300];
 			if (minWordlineDriverWidth > inputParameter->maxNmosSize * tech->featureSize) {
 				invalid = true;
 				return;
-			}
-			if (cell->accessType == none_access) {
-				maxBitlineCurrent = resetCurrent + resetCurrent * cell->resistanceOnAtResetVoltage / 2
-						/ cell->resistanceOnAtHalfResetVoltage * (numRow - 1);
-			} else { //diode or BJT
-				maxBitlineCurrent = resetCurrent + cell->leakageCurrentAccessDevice * (numRow - 1);
 			}
 		}
 	}
@@ -192,7 +223,7 @@ void SubArray::Initialize(long long _numRow, long long _numColumn, bool _multipl
 		if (cell->memCellType == SRAM || cell->memCellType == DRAM || cell->memCellType == eDRAM) {
 			/* SRAM, DRAM, and eDRAM all use voltage sensing */
 			voltageSense = true;
-		} else if (cell->memCellType == MRAM || cell->memCellType == PCRAM || cell->memCellType == memristor || cell->memCellType == FBRAM) {
+		} else if (cell->memCellType == MRAM || cell->memCellType == PCRAM || cell->memCellType == memristor || cell->memCellType == FBRAM || cell->memCellType == FeDiode) {
 			voltageSense = cell->readMode;
 		} else {/* NAND flash */
 			voltageSense = true;
@@ -292,8 +323,9 @@ void SubArray::Initialize(long long _numRow, long long _numColumn, bool _multipl
 				}
 			}
 		}
-	} else if (cell->memCellType == MRAM || cell->memCellType == PCRAM || cell->memCellType == memristor) {
-		/* MRAM, PCRAM, and memristor have three types of access devices: CMOS, BJT, and diode */
+	} else if (cell->memCellType == MRAM || cell->memCellType == PCRAM || cell->memCellType == memristor || cell->memCellType == FeDiode) {
+		/* MRAM, PCRAM, and memristor have three access device types: CMOS, BJT, and diode.
+		 * FeDiode is always two-terminal: the ferroelectric diode IS the storage + selector combined. */
 		if (cell->accessType == CMOS_access) {
 			resCellAccess = CalculateOnResistance(cell->widthAccessCMOS * tech->featureSize, NMOS, inputParameter->temperature, *tech);
 			capCellAccess = CalculateDrainCap(cell->widthAccessCMOS * tech->featureSize, NMOS, cell->widthInFeatureSize * tech->featureSize, *tech);
@@ -301,26 +333,48 @@ void SubArray::Initialize(long long _numRow, long long _numColumn, bool _multipl
 			capBitline  += capCellAccess * numRow / 2;	/* Due to shared contact */
 		} else if (cell->accessType == BJT_access) {
 			// TO-DO
-	/*	} else if (cell->accessType == diode_access){
-			if (cell->readVoltage == 0) {
-				resCellAccess = cell->voltageDropAccessDevice / cell->readCurrent;
+		} else if (cell->accessType == diode_access) {
+			if (cell->memCellType == FeDiode) {
+				/* FeDiode: two-terminal ferroelectric diode crossbar.
+				 * voltageDropAccessDevice is forced to 0 so resCellAccess = 0 and
+				 * resistanceOn/Off represent the full device resistance.
+				 * Unselected cells on the same WL/BL are reverse-biased, so use
+				 * capacitanceFeDiodeReverse (smaller) for line loading. */
+				resCellAccess = 0;
+				capCellAccess = cell->capacitanceFeDiode;
+				capWordline += cell->capacitanceFeDiodeReverse * numColumn;
+				capBitline  += cell->capacitanceFeDiodeReverse * numRow;
 			} else {
-				if (cell->readMode == false) {
-					resCellAccess = cell->voltageDropAccessDevice / (cell->readVoltage
-							- cell->voltageDropAccessDevice) * cell->resistanceOn;
+				/* Generic diode-accessed resistive cell (e.g. diode-selected RRAM/MRAM) */
+				if (cell->readVoltage == 0) {
+					resCellAccess = cell->voltageDropAccessDevice / cell->readCurrent;
 				} else {
-					cout<<"Error[Subarray]: Diode access do not support voltage-input voltage sensing" <<endl;
-					exit(-1);
+					if (cell->readMode == false) {
+						resCellAccess = cell->voltageDropAccessDevice / (cell->readVoltage
+								- cell->voltageDropAccessDevice) * cell->resistanceOn;
+					} else {
+						cout << "[Subarray] Error: Diode access does not support voltage-input voltage sensing" << endl;
+						exit(-1);
+					}
 				}
+				capCellAccess = MAX(cell->capacitanceOn, cell->capacitanceOff);
+				capWordline += MAX(cell->capacitanceOff, cell->capacitanceOn) * numColumn;
+				capBitline  += MAX(cell->capacitanceOff, cell->capacitanceOn) * numRow;
 			}
-			capCellAccess = MAX(cell->capacitanceOn, cell->capacitanceOff);
-			capWordline += MAX(cell->capacitanceOff, cell->capacitanceOn) * numColumn;
-			capBitline += MAX(cell->capacitanceOff, cell->capacitanceOn) * numRow;      */
-		} else { // none_access || diode_access
-			resCellAccess = 0;
-			capCellAccess = MAX(cell->capacitanceOn, cell->capacitanceOff);
-			capWordline += MAX(cell->capacitanceOff, cell->capacitanceOn) * numColumn;  //TO-DO: choose the right capacitance
-			capBitline += MAX(cell->capacitanceOff, cell->capacitanceOn) * numRow;      //TO-DO: choose the right capacitance
+		} else { // none_access
+			if (cell->memCellType == FeDiode) {
+				/* FeDiode with no explicit access type — treat identically to diode_access
+				 * since the FeDiode stack itself provides rectification. */
+				resCellAccess = 0;
+				capCellAccess = cell->capacitanceFeDiode;
+				capWordline += cell->capacitanceFeDiodeReverse * numColumn;
+				capBitline  += cell->capacitanceFeDiodeReverse * numRow;
+			} else {
+				resCellAccess = 0;
+				capCellAccess = MAX(cell->capacitanceOn, cell->capacitanceOff);
+				capWordline += MAX(cell->capacitanceOff, cell->capacitanceOn) * numColumn;
+				capBitline  += MAX(cell->capacitanceOff, cell->capacitanceOn) * numRow;
+			}
 		}
 		resMemCellOff = resCellAccess + cell->resistanceOff;
 		resMemCellOn = resCellAccess + cell->resistanceOn;

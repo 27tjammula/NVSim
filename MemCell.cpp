@@ -88,6 +88,17 @@ MemCell::MemCell() {
 	resistanceOffAtReadVoltage = 0;
 	resistanceOnAtHalfReadVoltage = 0;
 	resistanceOffAtHalfReadVoltage = 0;
+
+	/* For FeDiode */
+	capacitanceFeDiode        = 0;
+	capacitanceFeDiodeReverse = 0;
+	polarizationRemnant       = 0;
+	polarizationSpontaneous   = 0;
+	coerciveField             = 0;
+	ferroelectricThickness    = 0;
+	interlayerThickness       = 0;
+	interlayerPermittivity    = 0;
+	ferroelectricPermittivity = 0;
 }
 
 MemCell::~MemCell() {
@@ -124,7 +135,10 @@ void MemCell::ReadCellFromFile(const string & inputFile)
 				memCellType = memristor;
 			else if (!strcmp(tmp, "SLCNAND"))
 				memCellType = SLCNAND;
-			else
+			else if (!strcmp(tmp, "FeDiode")) {
+				memCellType = FeDiode;
+				voltageDropAccessDevice = 0;  /* no separate access device */
+			} else
 				memCellType = MLCNAND;
 			continue;
 		}
@@ -424,6 +438,79 @@ void MemCell::ReadCellFromFile(const string & inputFile)
 			}
 			continue;
 		}
+
+		/* FeDiode-specific parameters */
+		if (!strncmp("-CapacitanceFeDiode", line, strlen("-CapacitanceFeDiode"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -CapacitanceFeDiode is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-CapacitanceFeDiode (F): %lf", &capacitanceFeDiode);
+			continue;
+		}
+
+		if (!strncmp("-CapacitanceFeDiodeReverse", line, strlen("-CapacitanceFeDiodeReverse"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -CapacitanceFeDiodeReverse is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-CapacitanceFeDiodeReverse (F): %lf", &capacitanceFeDiodeReverse);
+			continue;
+		}
+
+		if (!strncmp("-PolarizationRemnant", line, strlen("-PolarizationRemnant"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -PolarizationRemnant is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-PolarizationRemnant (uC/cm^2): %lf", &polarizationRemnant);
+			continue;
+		}
+
+		if (!strncmp("-PolarizationSpontaneous", line, strlen("-PolarizationSpontaneous"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -PolarizationSpontaneous is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-PolarizationSpontaneous (uC/cm^2): %lf", &polarizationSpontaneous);
+			continue;
+		}
+
+		if (!strncmp("-CoerciveField", line, strlen("-CoerciveField"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -CoerciveField is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-CoerciveField (MV/cm): %lf", &coerciveField);
+			continue;
+		}
+
+		if (!strncmp("-FerroelectricThickness", line, strlen("-FerroelectricThickness"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -FerroelectricThickness is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-FerroelectricThickness (nm): %lf", &ferroelectricThickness);
+			continue;
+		}
+
+		if (!strncmp("-InterlayerThickness", line, strlen("-InterlayerThickness"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -InterlayerThickness is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-InterlayerThickness (nm): %lf", &interlayerThickness);
+			continue;
+		}
+
+		if (!strncmp("-InterlayerPermittivity", line, strlen("-InterlayerPermittivity"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -InterlayerPermittivity is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-InterlayerPermittivity: %lf", &interlayerPermittivity);
+			continue;
+		}
+
+		if (!strncmp("-FerroelectricPermittivity", line, strlen("-FerroelectricPermittivity"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -FerroelectricPermittivity is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-FerroelectricPermittivity: %lf", &ferroelectricPermittivity);
+			continue;
+		}
 	}
 
 	fclose(fp);
@@ -619,6 +706,9 @@ void MemCell::PrintCell()
 		break;
 	case MLCNAND:
 		cout << "Memory Cell: Multi-Level Cell NAND Flash" << endl;
+		break;
+	case FeDiode:
+		cout << "Memory Cell: FeDiode (Two-terminal Ferroelectric Diode Crossbar)" << endl;
 		break;
 	default:
 		cout << "Memory Cell: Unknown" << endl;

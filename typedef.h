@@ -48,7 +48,8 @@ enum MemCellType
 	memristor,
 	FBRAM,
 	SLCNAND,
-	MLCNAND
+	MLCNAND,
+	FeDiode		/* Two-terminal ferroelectric diode crossbar (e.g. Ti/Au|HfOx|AlScN|Al stack) */
 };
 enum CellAccessType
 {
