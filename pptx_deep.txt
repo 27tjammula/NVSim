@@ -1,0 +1,261 @@
+
+===== Slide 1 =====
+[PICTURE (13) name='그림 3']
+[PICTURE (13) name='그림 4']
+[GROUP (6) name='그룹 6']
+  [AUTO_SHAPE (1) name='직사각형 10']
+    TEXT: 50 nm Al
+  [AUTO_SHAPE (1) name='직사각형 11']
+    TEXT: 10 nm AlScN
+  [AUTO_SHAPE (1) name='직사각형 12']
+    TEXT: 4 nm HfOX
+  [AUTO_SHAPE (1) name='직사각형 13']
+    TEXT: Ti / Au
+  [AUTO_SHAPE (1) name='화살표: 아래쪽 14']
+  [AUTO_SHAPE (1) name='화살표: 아래쪽 15']
+[GROUP (6) name='그룹 76']
+  [PICTURE (13) name='그림 18']
+  [LINE (9) name='직선 연결선 56']
+  [TEXT_BOX (17) name='TextBox 57']
+    TEXT: 200 µm
+[GROUP (6) name='그룹 77']
+  [PICTURE (13) name='그림 17']
+  [LINE (9) name='직선 연결선 58']
+  [TEXT_BOX (17) name='TextBox 59']
+    TEXT: 20 µm
+[GROUP (6) name='그룹 20']
+  [PICTURE (13) name='그림 21']
+  [PICTURE (13) name='그림 22']
+  [AUTO_SHAPE (1) name='직사각형 25']
+  [LINE (9) name='직선 화살표 연결선 26']
+[AUTO_SHAPE (1) name='직사각형 27']
+[LINE (9) name='직선 화살표 연결선 28']
+[GROUP (6) name='그룹 64']
+  [GROUP (6) name='그룹 31']
+    [PICTURE (13) name='그림 32']
+    [LINE (9) name='직선 연결선 33']
+    [TEXT_BOX (17) name='TextBox 34']
+      TEXT: 100 nm
+  [AUTO_SHAPE (1) name='직사각형 47']
+[LINE (9) name='직선 연결선 52']
+[TEXT_BOX (17) name='TextBox 53']
+  TEXT: 200 µm
+[LINE (9) name='직선 연결선 60']
+[TEXT_BOX (17) name='TextBox 61']
+  TEXT: 10 µm
+[AUTO_SHAPE (1) name='직사각형 68']
+[TEXT_BOX (17) name='TextBox 70']
+  TEXT: (a)
+[TEXT_BOX (17) name='TextBox 71']
+  TEXT: (b)
+[TEXT_BOX (17) name='TextBox 72']
+  TEXT: (c)
+[TEXT_BOX (17) name='TextBox 73']
+  TEXT: (d)
+[TEXT_BOX (17) name='TextBox 74']
+  TEXT: (e)
+[TEXT_BOX (17) name='TextBox 75']
+  TEXT: (f)
+[TEXT_BOX (17) name='TextBox 78']
+  TEXT: (g)
+[AUTO_SHAPE (1) name='직사각형 79']
+  TEXT: Update to 2026
+[AUTO_SHAPE (1) name='직사각형 80']
+  TEXT: Not sure if we can get TEM but are still wating
+
+===== Slide 2 =====
+[GROUP (6) name='그룹 48']
+  [TEXT_BOX (17) name='TextBox 229']
+    TEXT: (a)
+  [TEXT_BOX (17) name='TextBox 230']
+    TEXT: (b)
+  [TEXT_BOX (17) name='TextBox 231']
+    TEXT: (c)
+  [TEXT_BOX (17) name='TextBox 232']
+    TEXT: (d)
+  [TEXT_BOX (17) name='TextBox 233']
+    TEXT: (e)
+  [TEXT_BOX (17) name='TextBox 234']
+    TEXT: (f)
+  [TEXT_BOX (17) name='TextBox 4']
+    TEXT: (g)
+  [PICTURE (13) name='그림 7']
+  [PICTURE (13) name='그림 8']
+  [PICTURE (13) name='그림 9']
+  [PICTURE (13) name='그림 10']
+  [TEXT_BOX (17) name='TextBox 16']
+    TEXT: AlScN (Sc 32%)
+    TEXT: 8 Byte crossbar
+    TEXT: Device diameter: 1 µm
+  [TEXT_BOX (17) name='TextBox 17']
+    TEXT: AlScN (Sc 32%)
+    TEXT: 8 Byte crossbar
+    TEXT: Device diameter: 200 nm
+  [TEXT_BOX (17) name='TextBox 18']
+    TEXT: AlScN (Sc 32%)
+    TEXT: 8 Byte crossbar
+    TEXT: Device diameter: 100 nm
+  [TEXT_BOX (17) name='TextBox 26']
+    TEXT: AlScN (Sc 32%)
+    TEXT: 8 Byte crossbar
+  [AUTO_SHAPE (1) name='타원 12']
+  [AUTO_SHAPE (1) name='타원 13']
+  [TEXT_BOX (17) name='TextBox 14']
+    TEXT: Measurement limit
+  [TEXT_BOX (17) name='TextBox 15']
+    TEXT: Matching
+  [PICTURE (13) name='Google Shape;54;p13']
+  [GROUP (6) name='그룹 45']
+    [PICTURE (13) name='Picture 2']
+    [AUTO_SHAPE (1) name='직사각형 37']
+    [AUTO_SHAPE (1) name='직사각형 38']
+    [TEXT_BOX (17) name='TextBox 39']
+      TEXT: AlScN (Sc 28%)
+    [TEXT_BOX (17) name='TextBox 40']
+      TEXT: AlScN (Sc 32%)
+  [GROUP (6) name='그룹 46']
+    [PICTURE (13) name='Google Shape;57;p13']
+    [AUTO_SHAPE (1) name='직사각형 41']
+    [AUTO_SHAPE (1) name='직사각형 42']
+    [TEXT_BOX (17) name='TextBox 43']
+      TEXT: AlScN (Sc 28%)
+    [TEXT_BOX (17) name='TextBox 44']
+      TEXT: AlScN (Sc 32%)
+[AUTO_SHAPE (1) name='직사각형 49']
+  TEXT: Color changes
+
+===== Slide 3 =====
+[PICTURE (13) name='그림 5']
+[PICTURE (13) name='그림 13']
+[PICTURE (13) name='그림 88']
+[PICTURE (13) name='그림 90']
+[TEXT_BOX (17) name='TextBox 91']
+  TEXT: (a)
+[TEXT_BOX (17) name='TextBox 92']
+  TEXT: (b)
+[TEXT_BOX (17) name='TextBox 93']
+  TEXT: (c)
+[TEXT_BOX (17) name='TextBox 94']
+  TEXT: (d)
+[AUTO_SHAPE (1) name='직사각형 95']
+  TEXT: Graph font sizes
+  TEXT: Graph title should be removed
+
+===== Slide 4 =====
+[GROUP (6) name='그룹 131']
+  [PICTURE (13) name='그림 3']
+  [TEXT_BOX (17) name='TextBox 50']
+    TEXT: 2 Kbyte crossbar
+    TEXT: AlScN (Sc 32%)
+    TEXT: Device diameter: 200 nm
+[GROUP (6) name='그룹 130']
+  [PICTURE (13) name='그림 1']
+  [GROUP (6) name='그룹 16']
+    [LINE (9) name='직선 연결선 23']
+    [LINE (9) name='직선 연결선 24']
+    [TEXT_BOX (17) name='TextBox 28']
+      TEXT: Extrapolated line
+    [AUTO_SHAPE (1) name='별: 꼭짓점 5개 32']
+    [TEXT_BOX (17) name='TextBox 43']
+      TEXT: 10-years
+  [TEXT_BOX (17) name='TextBox 51']
+    TEXT: 2 Kbyte crossbar
+    TEXT: AlScN (Sc 32%)
+    TEXT: Device diameter: 200 nm
+[GROUP (6) name='그룹 52']
+  [PICTURE (13) name='Google Shape;62;p14']
+  [TEXT_BOX (17) name='Google Shape;63;p14']
+    TEXT: 4242
+  [TEXT_BOX (17) name='Google Shape;64;p14']
+    TEXT: 1606
+  [TEXT_BOX (17) name='Google Shape;65;p14']
+    TEXT: 715
+  [TEXT_BOX (17) name='Google Shape;66;p14']
+    TEXT: 871
+  [TEXT_BOX (17) name='Google Shape;67;p14']
+    TEXT: 588
+  [TEXT_BOX (17) name='Google Shape;68;p14']
+    TEXT: 74
+  [TEXT_BOX (17) name='Google Shape;69;p14']
+    TEXT: 12
+  [TEXT_BOX (17) name='Google Shape;70;p14']
+    TEXT: 13
+  [TEXT_BOX (17) name='Google Shape;71;p14']
+    TEXT: 16
+  [TEXT_BOX (17) name='Google Shape;72;p14']
+    TEXT: 1.2
+  [TEXT_BOX (17) name='Google Shape;73;p14']
+    TEXT: 0.9
+  [TEXT_BOX (17) name='Google Shape;74;p14']
+    TEXT: 0.8
+[TEXT_BOX (17) name='TextBox 133']
+  TEXT: (a)
+[TEXT_BOX (17) name='TextBox 134']
+  TEXT: (b)
+[TEXT_BOX (17) name='TextBox 135']
+  TEXT: (c)
+[AUTO_SHAPE (1) name='직사각형 138']
+  TEXT: Measure upto nanosecond range (as high as possible)
+
+===== Slide 5 =====
+[AUTO_SHAPE (1) name='직사각형 4']
+  TEXT: Simulations
+
+===== Slide 6 =====
+[TABLE (19) name='표 6']
+  ROW: Material | Structure | Non-    
+volatile | Selector    required? | Cell Size            (µm²) | ON/OFF | BEOL-             compatible | Array Size | Reference
+  ROW: HZO | 1T1C | Yes | Yes | 0.000024 | ~ | No | 32 GB | IEDM 2023 [1]
+  ROW: HZO / IGZO | 1 FeD | Yes | No | 5 × 10⁻⁹ | 3 × 10⁵ | No | 4 × 4 | VLSI 2021 [2]
+  ROW: HZO | 1 FeD | Yes | No | 0.049 (0.25²π) | 10⁴ | Yes | 4 × 8, 8-layer | Nature Comm. [3]
+  ROW: HZO | 1T1C | Yes | Yes | 1.0 | ~ | Yes | 64 kbit | VLSI 2020 [4]
+  ROW: HZO | 1 FeD | Yes | No | 0.049 (0.25²π) | 100 | No | 8 × 64, 16-layer | IEDM 2023 [5]
+  ROW: IGZO | 2TOC | No | Yes | 135.0 (45 × 3) | ~ | Yes | 4 × 4 | IEDM 2024 [6]
+  ROW: Ge₂Sb₂Te₅ | 1T1R | No | Yes | ~ | 12.7 | Yes | 288 KB | IEDM 2024 [7]
+  ROW: AlScN | 1 FeD | Yes | No | 0.00785 (0.05²π) | 4 × 103 | Yes | 2 KB | This Work
+[AUTO_SHAPE (1) name='직사각형 4']
+  TEXT: Ref
+
+===== Slide 7 =====
+[PLACEHOLDER (14) name='Slide Number Placeholder 3']
+  TEXT: 7
+[GROUP (6) name='그룹 1']
+  [GROUP (6) name='그룹 2']
+    [GROUP (6) name='그룹 13']
+      [GROUP (6) name='그룹 28']
+        [PICTURE (13) name='Picture 14']
+        [LINE (9) name='Straight Connector 33']
+      [TEXT_BOX (17) name='TextBox 29']
+        TEXT: Sc
+    [GROUP (6) name='그룹 14']
+      [PICTURE (13) name='Picture 4']
+      [TEXT_BOX (17) name='TextBox 26']
+        TEXT: Al
+      [LINE (9) name='Straight Connector 32']
+    [GROUP (6) name='그룹 15']
+      [PICTURE (13) name='Picture 2']
+      [TEXT_BOX (17) name='TextBox 24']
+        TEXT: Ti
+    [GROUP (6) name='그룹 16']
+      [PICTURE (13) name='Picture 24']
+      [TEXT_BOX (17) name='TextBox 18']
+        TEXT: AlScN
+      [TEXT_BOX (17) name='TextBox 19']
+        TEXT: Al
+      [LINE (9) name='Straight Connector 28']
+      [TEXT_BOX (17) name='TextBox 21']
+        TEXT: 10 nm
+      [LINE (9) name='직선 연결선 22']
+  [LINE (9) name='Straight Connector 34']
+
+===== Slide 8 =====
+
+===== Slide 9 =====
+
+===== Slide 10 =====
+
+===== Slide 11 =====
+
+===== Slide 12 =====
+
+===== Slide 13 =====

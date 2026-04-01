@@ -40,6 +40,7 @@
 #include "global.h"
 #include "macros.h"
 #include <math.h>
+#include <iomanip>
 
 MemCell::MemCell() {
 	// TODO Auto-generated constructor stub
@@ -99,6 +100,8 @@ MemCell::MemCell() {
 	interlayerThickness       = 0;
 	interlayerPermittivity    = 0;
 	ferroelectricPermittivity = 0;
+	eta                       = 0;
+	ferroelectricMaterial     = "";
 }
 
 MemCell::~MemCell() {
@@ -511,7 +514,29 @@ void MemCell::ReadCellFromFile(const string & inputFile)
 				sscanf(line, "-FerroelectricPermittivity: %lf", &ferroelectricPermittivity);
 			continue;
 		}
+
+		if (!strncmp("-Eta", line, strlen("-Eta"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -Eta is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-Eta: %lf", &eta);
+			continue;
+		}
+
+		if (!strncmp("-FerroelectricMaterial", line, strlen("-FerroelectricMaterial"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -FerroelectricMaterial is ignored because the memory cell is not FeDiode." << endl;
+			else {
+				sscanf(line, "-FerroelectricMaterial: %s", tmp);
+				ferroelectricMaterial = tmp;
+			}
+			continue;
+		}
 	}
+
+	/* Auto-calculate eta from Pr/Ps if not explicitly provided */
+	if (memCellType == FeDiode && eta == 0 && polarizationSpontaneous > 0)
+		eta = polarizationRemnant / polarizationSpontaneous;
 
 	fclose(fp);
 }
@@ -675,6 +700,258 @@ double MemCell::CalculateReadPower() { /* TO-DO consider charge pumped read volt
 		return -1.0; /* should not call the function if read energy exists */
 	}
 	return -1.0;
+}
+
+/* ============================================================
+ * CalculateMemoryWindow() — FeDiode-specific memory window analysis
+ *
+ * Maps the ferroelectric polarization state to the ON/OFF current ratio
+ * for an MFIS two-terminal crossbar device.
+ *
+ * Ferroelectric physics (from Toprasertpong et al., IEEE TED 2022,
+ * as adapted in Fe-NVSim):
+ *   Eq. 8  — Ideal MFS window (utility function)
+ *   Eq. 9  — MWminor for MFIS under voltage division
+ *   Eq. 10 — alphaV, parameterizes partial switching at Vm
+ *
+ * Transport mapping (FeDiode-specific, NOT ΔVth FeFET model):
+ *   The ferroelectric MW modulates the junction potential.
+ *   Effective polarization-induced junction shift:
+ *     Vpol = 2*Pr / (ε0 * (εFE/tFE + εIL/tIL))
+ *   This is the MFIS capacitor voltage divider at full switching —
+ *   independent of the write voltage, governed only by Pr and geometry.
+ *   Upper bound on ION/IOFF = exp(q*Vpol / kT)  (ideal thermionic transport)
+ *   Operational ION/IOFF = exp(q*Vpol / (n_eff*kT))  (n_eff calibrated to measured)
+ *
+ * Validation (20% criterion):
+ *   MW_MFIS(Vwrite) must exceed the minimum MW needed for the measured
+ *   ON/OFF ratio with ideal transport: MW_min = kT*ln(ION/IOFF).
+ *   If not, print warning and suggest corrected Pr or Ec.
+ * ============================================================ */
+void MemCell::CalculateMemoryWindow()
+{
+	if (memCellType != FeDiode) {
+		cout << "[MemCell] Warning: CalculateMemoryWindow() called on non-FeDiode cell. Skipped." << endl;
+		return;
+	}
+
+	/* ---- Physical constants ---- */
+	const double eps0  = 8.854e-12;  /* F/m */
+	const double kT_q  = 0.02585;    /* V at 300 K */
+
+	/* ---- Unit conversions from cell-file storage to SI ---- */
+	/* polarizationRemnant:      uC/cm^2  ->  C/m^2  (×0.01) */
+	/* polarizationSpontaneous:  uC/cm^2  ->  C/m^2  (×0.01) */
+	/* coerciveField:            MV/cm    ->  V/m    (×1e8)  */
+	/* ferroelectricThickness:   nm       ->  m      (×1e-9) */
+	/* interlayerThickness:      nm       ->  m      (×1e-9) */
+	double Pr  = polarizationRemnant     * 1e-2;   /* C/m^2 */
+	double Ps  = polarizationSpontaneous * 1e-2;   /* C/m^2 */
+	double Ec  = coerciveField           * 1e8;    /* V/m   */
+	double tFE = ferroelectricThickness  * 1e-9;   /* m     */
+	double tIL = interlayerThickness     * 1e-9;   /* m     */
+	double eFE = ferroelectricPermittivity;        /* dimensionless */
+	double eIL = interlayerPermittivity;           /* dimensionless */
+
+	if (Pr == 0 || Ps == 0 || Ec == 0 || tFE == 0 || eFE == 0) {
+		cout << "[MemCell] Warning: FeDiode memory window skipped — ferroelectric parameters incomplete." << endl;
+		cout << "          Set PolarizationRemnant, PolarizationSpontaneous, CoerciveField," << endl;
+		cout << "          FerroelectricThickness, and FerroelectricPermittivity in the .cell file." << endl;
+		return;
+	}
+
+	/* η: squareness; auto-calculated from Pr/Ps if -Eta not given */
+	double eta_val = (eta > 0) ? eta : Pr / Ps;
+	if (eta_val <= 0 || eta_val > 1) {
+		cout << "[MemCell] Warning: eta = " << eta_val << " out of (0,1]. Resetting to Pr/Ps = " << Pr/Ps << endl;
+		eta_val = Pr / Ps;
+	}
+
+	/* ================================================================
+	 * Eq. 8 — Ideal MFS memory window (utility; used as MW0 in Eq. 9)
+	 *
+	 * Branch 1 (small Pr):  MW = 2*Pr / (eFE*eps0)
+	 * Branch 2 (large Pr):  MW = 2*Ec*tFE / (1 + eFE*eps0*Ec*tanh(η)/Pr) * (2 - 1/η)
+	 *
+	 * Boundary: Pr vs. eFE*eps0*Ec.  Paper says "Pr << eFE*eps0*Ec" for branch 1
+	 * and "Pr > eFE*eps0*Ec*tanh(η)" for branch 2.  We use the tanh-weighted
+	 * boundary as the crossover.
+	 * ================================================================ */
+	double eFE_eps0_Ec = eFE * eps0 * Ec;   /* C/m^2: characteristic polarization scale */
+	double mw_mfs;
+	if (Pr < eFE_eps0_Ec) {
+		/* Small-Pr limit */
+		mw_mfs = 2.0 * Pr / (eFE * eps0);
+	} else {
+		/* Large-Pr limit (also used when Pr is between the two branches, per paper note) */
+		double factor = 1.0 + eFE * eps0 * Ec * tanh(eta_val) / Pr;
+		mw_mfs = 2.0 * Ec * tFE / factor * (2.0 - 1.0 / eta_val);
+	}
+
+	/* ================================================================
+	 * MFIS voltage division: Vm (voltage across FE layer) from Vg (applied)
+	 *
+	 *   Vm = Vg * (tFE/eFE) / (tFE/eFE + tIL/eIL)
+	 *
+	 * Physical picture: series capacitors C_FE = eFE*eps0/tFE and C_IL = eIL*eps0/tIL.
+	 * The FE layer sees a reduced voltage relative to the total applied Vg.
+	 * ================================================================ */
+	double Vg  = fabs(resetVoltage);   /* write voltage magnitude */
+	double rFE = tFE / eFE;            /* "electrical thickness" of FE layer */
+	double rIL = (tIL > 0 && eIL > 0) ? tIL / eIL : 0.0;
+	double Vm  = (rIL > 0.0) ? Vg * rFE / (rFE + rIL) : Vg;
+
+	/* ================================================================
+	 * θ- (theta-minus): shape parameter for MWminor formula (Eq. 9)
+	 *   θ- ≈ (1/2) * (1 + (3/5) * eFE*eps0*Ec / (Ps*η))
+	 * ================================================================ */
+	double theta_m = 0.5 * (1.0 + 0.6 * eFE_eps0_Ec / (Ps * eta_val));
+
+	/* ================================================================
+	 * Transport mapping (FeDiode-specific)
+	 *
+	 * The remanent polarization Pr creates a bound surface charge ±2*Pr
+	 * at the FE/IL interface.  For an MFIS capacitor stack at rest
+	 * (no applied voltage after write), this charge induces a potential:
+	 *
+	 *   Vpol = 2*Pr / (eps0 * (eFE/tFE + eIL/tIL))
+	 *        = 2*Pr / (eps0 / rFE + eps0 / rIL)   [series dielectrics]
+	 *
+	 * This Vpol shifts the diode I-V curve between the two polarization
+	 * states, giving: ION/IOFF = exp(q*Vpol / (n_eff*kT))
+	 *
+	 * n_eff is back-calculated from the measured resistance ratio and Vpol.
+	 * It encapsulates all non-ideal effects: interface traps, partial
+	 * depolarization, non-thermionic transport.
+	 * ================================================================ */
+	double C_stack_inv = rFE / eps0 + ((rIL > 0) ? rIL / eps0 : 0.0);  /* 1/C', m^2/F */
+	double Vpol = (C_stack_inv > 0) ? 2.0 * Pr * C_stack_inv : 0.0;    /* V */
+
+	double measured_ratio = (resistanceOn > 0) ? (resistanceOff / resistanceOn) : 4000.0;
+	double n_eff = 1.0;
+	if (Vpol > 0 && measured_ratio > 1)
+		n_eff = Vpol / (kT_q * log(measured_ratio));
+
+	/* Minimum MW needed for measured ratio at ideal transport (n=1) */
+	double mw_min_ideal = kT_q * log(measured_ratio);   /* V */
+
+	/* ================================================================
+	 * Print header
+	 * ================================================================ */
+	cout << endl;
+	cout << "============================================================" << endl;
+	cout << " FeDiode Memory Window Analysis" << endl;
+	if (!ferroelectricMaterial.empty())
+		cout << " Material        : " << ferroelectricMaterial << endl;
+	cout << fixed << setprecision(3);
+	cout << " Pr = "  << polarizationRemnant      << " uC/cm^2"
+	     << "   Ps = " << polarizationSpontaneous  << " uC/cm^2"
+	     << "   eta = " << eta_val << endl;
+	cout << " Ec = "  << coerciveField            << " MV/cm"
+	     << "   tFE = " << ferroelectricThickness  << " nm"
+	     << "   eFE = " << eFE << endl;
+	if (tIL > 0)
+		cout << " tIL = " << interlayerThickness << " nm"
+		     << "   eIL = " << eIL << endl;
+	cout << " Vwrite = " << Vg << " V"
+	     << "   Vm (FE layer at Vwrite) = " << Vm << " V" << endl;
+	cout << "------------------------------------------------------------" << endl;
+	cout << " MW_MFS  (ideal MFS,  Eq.8)          = " << mw_mfs << " V" << endl;
+	cout << " Vpol    (polarization junction shift)= " << Vpol   << " V" << endl;
+	cout << " ION/IOFF upper bound (n_eff=1)       = ";
+	cout << scientific << setprecision(3) << exp(Vpol / kT_q) << endl;
+	cout << fixed << setprecision(3);
+	cout << " Measured R_off/R_on                  = " << measured_ratio << endl;
+	cout << " n_eff (coupling factor)              = " << n_eff << endl;
+	cout << "------------------------------------------------------------" << endl;
+
+	/* ================================================================
+	 * Sweep Vm from 0.1*Vm to Vm in 10 steps
+	 * At each step, compute alphaV (Eq. 10) and MWminor (Eq. 9)
+	 * ================================================================ */
+	cout << endl;
+	cout << "  Vm (V)   alphaV (C/m^2)  MW_minor (V)  ION/IOFF_op  ION/IOFF_max" << endl;
+	cout << "  ------   -------------   ------------  -----------  ------------" << endl;
+
+	double mw_minor_at_vwrite = 0.0;
+	int    numSteps = 10;
+	double denom_tanh_Pr = tanh(theta_m * Pr / Ps);   /* denominator, constant */
+
+	for (int i = 1; i <= numSteps; i++) {
+		double Vm_i = Vm * (double)i / numSteps;
+
+		/* Eq. 10: alphaV — effective polarization amplitude at partial voltage Vm_i */
+		double E_norm_plus  = eta_val * (Vm_i / tFE + Ec) / Ec;
+		double E_norm_minus = eta_val * (Vm_i / tFE - Ec) / Ec;
+		double alphaV = 0.5 * Ps * (tanh(E_norm_plus) - tanh(E_norm_minus));
+
+		/* Eq. 9: MWminor */
+		double mw_minor = 0.0;
+		if (fabs(denom_tanh_Pr) > 1e-15 && alphaV > 0.0) {
+			double ratio_tanh = tanh(theta_m * alphaV / Ps) / denom_tanh_Pr;
+			mw_minor = mw_mfs * (1.0 - ratio_tanh)
+			         - (2.0 * tFE * alphaV / (eFE * eps0)) * (1.0 - (Pr / alphaV) * ratio_tanh);
+		}
+
+		/* Clamp to zero if negative (physically: write voltage below Ec, no switching) */
+		if (mw_minor < 0.0) mw_minor = 0.0;
+
+		if (i == numSteps)
+			mw_minor_at_vwrite = mw_minor;
+
+		double ioff_op  = (n_eff > 0) ? exp(mw_minor / (n_eff * kT_q)) : 1.0;
+		double ioff_max = exp(mw_minor / kT_q);
+
+		cout << "  " << fixed << setprecision(4) << Vm_i
+		     << "     " << scientific << setprecision(3) << alphaV
+		     << "       " << fixed << setprecision(4) << mw_minor
+		     << "     " << scientific << setprecision(3) << ioff_op
+		     << "   " << scientific << setprecision(3) << ioff_max << endl;
+	}
+
+	/* ================================================================
+	 * Validation: does MW_MFIS(Vwrite) >= MW_min needed for measured ratio?
+	 * The 20% tolerance applies to the ratio MW_minor_at_vwrite / mw_min_ideal.
+	 * ================================================================ */
+	cout << endl;
+	cout << "------------------------------------------------------------" << endl;
+	cout << " Validation checkpoint" << endl;
+	cout << "   MW_minor at Vwrite                = " << fixed << setprecision(4) << mw_minor_at_vwrite << " V" << endl;
+	cout << "   MW_min needed (ideal transport)   = " << mw_min_ideal << " V  (for ION/IOFF = " << measured_ratio << ")" << endl;
+	cout << "   Margin  MW_minor / MW_min          = " << fixed << setprecision(2) << mw_minor_at_vwrite / mw_min_ideal << "x" << endl;
+
+	bool pass = (mw_minor_at_vwrite >= mw_min_ideal * 0.80);  /* 20% tolerance */
+	if (pass) {
+		cout << " [PASS] Ferroelectric parameters are consistent with measured ON/OFF." << endl;
+		cout << "        n_eff = " << fixed << setprecision(2) << n_eff;
+		if (n_eff <= 5.0)
+			cout << " (thermionic / Schottky-like transport)" << endl;
+		else if (n_eff <= 15.0)
+			cout << " (trap-assisted or tunneling transport, physically plausible)" << endl;
+		else
+			cout << " (very low FE-junction coupling — check interface quality)" << endl;
+	} else {
+		cout << " [WARN] MW_minor at Vwrite is below the ideal-transport minimum." << endl;
+		cout << "        The measured ON/OFF cannot be explained without supplementary" << endl;
+		cout << "        conduction mechanisms, or the FE parameters need refinement." << endl;
+		cout << endl;
+		/* Suggest what Ec is needed to achieve MW_minor = mw_min_ideal */
+		/* In the large-Pr regime: MW ≈ 2*Ec*tFE * (2 - 1/η) / (1 + eFE*eps0*Ec*tanh(η)/Pr) */
+		/* For small eFE*eps0*Ec*tanh(η)/Pr: MW ≈ 2*Ec*tFE*(2-1/η) → Ec ≈ MW / (2*tFE*(2-1/η)) */
+		double shape = 2.0 - 1.0 / eta_val;
+		if (shape > 0 && tFE > 0) {
+			double Ec_needed = mw_min_ideal / (2.0 * tFE * shape);
+			cout << "        Suggested Ec to achieve MW_min with current Pr/η:" << endl;
+			cout << "          Ec_needed ≈ " << fixed << setprecision(3) << Ec_needed * 1e-8 << " MV/cm" << endl;
+		}
+		/* Suggest Pr needed: for large-Pr regime, MW saturates; for small-Pr: MW = 2*Pr/(eFE*eps0) */
+		/* → Pr_needed = mw_min_ideal * eFE * eps0 / 2 */
+		double Pr_needed_SI = mw_min_ideal * eFE * eps0 / 2.0;
+		cout << "        Suggested Pr (small-Pr regime limit):" << endl;
+		cout << "          Pr_needed ≈ " << fixed << setprecision(2) << Pr_needed_SI * 100.0 << " uC/cm^2" << endl;
+	}
+	cout << "============================================================" << endl;
+	cout << endl;
 }
 
 void MemCell::PrintCell()

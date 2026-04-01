@@ -1,0 +1,54 @@
+# AlScN ferroelectric diode crossbar cell — 200 nm diameter device
+# Stack: Ti/Au | 4nm HfOx | 10nm AlScN | 50nm Al
+#
+# Write energy (explicitly provided, bypasses CalculateWriteEnergy()):
+#   A = pi*(100e-9)^2 = 3.142e-14 m^2  (4x the 100nm device area)
+#   E_switch = 0.75 J/m^2 * 3.142e-14 m^2 = 23.56 fJ
+#   E_charge = 5.215e-16 F * (3.0 V)^2  =  4.694 fJ
+#   E_total  = 28.25 fJ = 0.02825 pJ
+#   Ratio vs 100nm device: 0.02825/0.007063 = 4.00 = (200nm/100nm)^2  [E ~ r^2]
+#
+# R_on scales as 1/A from 100nm baseline (1 MOhm):
+#   R_on = 1e6 * (7.854e-15 / 3.142e-14) = 250 kOhm
+# R_off/R_on = 4000
+
+-MemCellType: FeDiode
+
+-CellArea (F^2): 39
+-CellAspectRatio: 1
+
+-ProcessNode: 32
+
+-ResistanceOn (ohm): 2.5e5
+-ResistanceOff (ohm): 1e9
+
+-ReadMode: current
+-ReadVoltage (V): 0.2
+-ReadCurrent (uA): 0.8
+-ReadPower (uW): 0.0
+-MinSenseVoltage (mV): 20
+
+-ResetMode: voltage
+-ResetVoltage (V): 3.0
+-ResetPulse (ns): 10
+-ResetEnergy (pJ): 0.02825
+
+-SetMode: voltage
+-SetVoltage (V): -3.0
+-SetPulse (ns): 10
+-SetEnergy (pJ): 0.02825
+
+-AccessType: None
+
+-CapacitanceFeDiode (F): 2.399e-16
+-CapacitanceFeDiodeReverse (F): 1.2e-16
+
+-PolarizationRemnant (uC/cm^2): 15.0
+-PolarizationSpontaneous (uC/cm^2): 18.0
+-CoerciveField (MV/cm): 2.5
+-FerroelectricThickness (nm): 10
+-InterlayerThickness (nm): 4
+-InterlayerPermittivity: 25
+-FerroelectricPermittivity: 10
+-FerroelectricMaterial: AlScN
+-Eta: 0.833

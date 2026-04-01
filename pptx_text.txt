@@ -1,0 +1,51 @@
+=== Slide 1 ===
+  200 µm
+  10 µm
+  (a)
+  (b)
+  (c)
+  (d)
+  (e)
+  (f)
+  (g)
+  Update to 2026
+  Not sure if we can get TEM but are still wating
+
+=== Slide 2 ===
+  Color changes
+
+=== Slide 3 ===
+  (a)
+  (b)
+  (c)
+  (d)
+  Graph font sizes
+  Graph title should be removed
+
+=== Slide 4 ===
+  (a)
+  (b)
+  (c)
+  Measure upto nanosecond range (as high as possible)
+
+=== Slide 5 ===
+  Simulations
+
+=== Slide 6 ===
+  Ref
+
+=== Slide 7 ===
+  7
+
+=== Slide 8 ===
+
+=== Slide 9 ===
+
+=== Slide 10 ===
+
+=== Slide 11 ===
+
+=== Slide 12 ===
+
+=== Slide 13 ===
+

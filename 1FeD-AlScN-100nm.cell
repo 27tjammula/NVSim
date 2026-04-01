@@ -1,0 +1,59 @@
+# AlScN ferroelectric diode crossbar cell — 100 nm diameter device
+# Stack: Ti/Au | 4nm HfOx | 10nm AlScN | 50nm Al
+#
+# Write energy (explicitly provided, bypasses CalculateWriteEnergy()):
+#   E_switch = 2 * Pr * Ec * tFE * A
+#            = 2 * 0.15 C/m^2 * 2.5e8 V/m * 10e-9 m * pi*(50e-9)^2 m^2
+#            = 5.890 fJ
+#   E_charge = C_junction * V_write^2
+#            = 1.303e-16 F * (3.0 V)^2 = 1.173 fJ
+#   E_total  = 7.063 fJ = 0.007063 pJ  (SetEnergy = ResetEnergy)
+#
+# C_junction from series stack: 1/C' = tIL/(e0*eIL) + tFE/(e0*eFE)
+#   eIL = 25 (HfOx), eFE = 10 (AlScN)
+#   = 4e-9/(8.854e-12*25) + 10e-9/(8.854e-12*10) = 131.0 m^2/F
+#   C' = 7.634 mF/m^2 -> C_fwd = 5.997e-17 F, C_rev = 3.0e-17 F (reverse-biased)
+#
+# R_on = 1 MOhm at A = pi*(50nm)^2 = 7.854e-15 m^2 (baseline)
+# R_off/R_on = 4000 (measured ON/OFF ratio from PPTX)
+
+-MemCellType: FeDiode
+
+-CellArea (F^2): 10
+-CellAspectRatio: 1
+
+-ProcessNode: 32
+
+-ResistanceOn (ohm): 1e6
+-ResistanceOff (ohm): 4e9
+
+-ReadMode: current
+-ReadVoltage (V): 0.2
+-ReadCurrent (uA): 0.2
+-ReadPower (uW): 0.0
+-MinSenseVoltage (mV): 20
+
+-ResetMode: voltage
+-ResetVoltage (V): 3.0
+-ResetPulse (ns): 10
+-ResetEnergy (pJ): 0.007063
+
+-SetMode: voltage
+-SetVoltage (V): -3.0
+-SetPulse (ns): 10
+-SetEnergy (pJ): 0.007063
+
+-AccessType: None
+
+-CapacitanceFeDiode (F): 5.997e-17
+-CapacitanceFeDiodeReverse (F): 3.0e-17
+
+-PolarizationRemnant (uC/cm^2): 15.0
+-PolarizationSpontaneous (uC/cm^2): 18.0
+-CoerciveField (MV/cm): 2.5
+-FerroelectricThickness (nm): 10
+-InterlayerThickness (nm): 4
+-InterlayerPermittivity: 25
+-FerroelectricPermittivity: 10
+-FerroelectricMaterial: AlScN
+-Eta: 0.833

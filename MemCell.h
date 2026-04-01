@@ -39,6 +39,7 @@
 #define MEMCELL_H_
 
 #include <iostream>
+#include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +59,7 @@ public:
 	double GetMemristance(double _relativeReadVoltage);  /* Get the LRS resistance of memristor at log-linera region of I-V curve */
 	void CalculateWriteEnergy();
 	double CalculateReadPower();
+	void CalculateMemoryWindow(); /* FeDiode only: Eqs. 8-10 from Toprasertpong (via Fe-NVSim), adapted for MFIS diode */
 	void PrintCell();
 
 	/* Properties */
@@ -122,6 +124,8 @@ public:
 	double interlayerThickness;         /* Interlayer (interfacial) thickness tIL, Unit: nm */
 	double interlayerPermittivity;      /* Relative permittivity of interlayer eIL (dimensionless) */
 	double ferroelectricPermittivity;   /* Relative permittivity of ferroelectric layer eFE (dimensionless) */
+	double eta;                         /* Squareness of hysteresis loop eta = Pr/Ps (auto-calculated if 0) */
+	std::string ferroelectricMaterial;  /* Material label for display (e.g., "AlScN") */
 
 	/* For NAND flash */
 	double flashEraseVoltage;		/* The erase voltage, Unit: V, highest W/E voltage in ITRS sheet */

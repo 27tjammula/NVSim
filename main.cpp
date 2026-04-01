@@ -147,6 +147,9 @@ int main(int argc, char *argv[])
 
 	cell->PrintCell();
 
+	if (cell->memCellType == FeDiode)
+		cell->CalculateMemoryWindow();
+
 	applyConstraint();
 
 	int numRowMat, numColumnMat, numActiveMatPerRow, numActiveMatPerColumn;
