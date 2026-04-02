@@ -12,14 +12,14 @@
 #   Iread_on = 0.8 uA => Ron = 250 kohm
 #   Roff = Ron * 4e3 = 1 Gohm
 #
-# Junction capacitance model requested:
-#   C_fwd = eps0 * epsFE * A / tFE = 2.782e-16 F
-#   C_rev = 0.5 * C_fwd = 1.391e-16 F
+# Junction capacitance model (corrected permittivities from github.com/krishkc5/ferroelectric-diode-model):
+#   eFE = 16 (AlScN, materials.py baseline), eIL = 18 (HfO2 refined)
+#   C' = 10.451 mF/m^2  ->  C_fwd = 3.283e-16 F, C_rev = 1.642e-16 F
 #
 # Write energy (provided directly, bypass CalculateWriteEnergy):
-#   E_switch = 2 * Pr * Ec * tFE * A = 23.562 fJ
-#   E_charge = C_fwd * Vwrite^2 = 2.504 fJ
-#   E_total  = 26.066 fJ = 0.026066 pJ
+#   E_switch = 2 * Pr * Ec * tFE * A = 23.562 fJ  (Pr, Ec from PPTX measured data)
+#   E_charge = C_fwd * Vwrite^2 = 3.283e-16 * 9.0 = 2.955 fJ
+#   E_total  = 26.517 fJ = 0.026517 pJ
 #   Area scaling check vs 100nm: 4x
 
 -MemCellType: FeDiode
@@ -41,25 +41,38 @@
 -ResetMode: voltage
 -ResetVoltage (V): 2.5
 -ResetPulse (ns): 10
--ResetEnergy (pJ): 0.0253004237
+-ResetEnergy (pJ): 0.0256139199
 
 -SetMode: voltage
 -SetVoltage (V): -2.5
 -SetPulse (ns): 10
--SetEnergy (pJ): 0.0253004237
+-SetEnergy (pJ): 0.0256139199
 
 -AccessType: None
 -VoltageDropAccessDevice (V): 0
 
--CapacitanceFeDiode (F): 2.782e-16
--CapacitanceFeDiodeReverse (F): 1.391e-16
+-CapacitanceFeDiode (F): 3.283e-16
+-CapacitanceFeDiodeReverse (F): 1.642e-16
 
 -PolarizationRemnant (uC/cm^2): 15.0
 -PolarizationSpontaneous (uC/cm^2): 18.0
 -CoerciveField (MV/cm): 2.5
 -FerroelectricThickness (nm): 10
 -InterlayerThickness (nm): 4
--InterlayerPermittivity: 25
--FerroelectricPermittivity: 10
+-InterlayerPermittivity: 18
+-FerroelectricPermittivity: 16
 -FerroelectricMaterial: AlScN
 -Eta: 0.833
+#
+# Transport parameters (from github.com/krishkc5/ferroelectric-diode-model, materials.py):
+#   chi_AlScN = 1.0 eV, chi_HfO2 = 2.0 eV (lower bound of 2.0-2.3 range)
+#   m*_AlScN  = 0.3 m_e, m*_HfO2  = 0.11 m_e
+#   Trap depth (HfO2 interfacial traps) = 0.8 eV
+#   Anode (Ti): WF = 4.33 eV, Cathode (Al): WF = 4.28 eV
+-ElectronAffinityFerroelectric (eV): 1.0
+-ElectronAffinityInterlayer (eV): 2.0
+-EffectiveMassFerroelectric (m_e): 0.3
+-EffectiveMassInterlayer (m_e): 0.11
+-TrapDepth (eV): 0.8
+-WorkFunctionAnode (eV): 4.33
+-WorkFunctionCathode (eV): 4.28

@@ -41,9 +41,11 @@ def save_csv(path: Path, header, rows):
 
 
 def place_legend_right(ax, ncol=1):
+    """Place legend to the right of the axes, anchored to the top edge so it
+    never drifts upward into the chart title regardless of entry count."""
     ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1.0),
         borderaxespad=0.0,
         frameon=True,
         ncol=ncol,
@@ -66,7 +68,11 @@ def parse_cell(path: Path):
             raise ValueError(f"Missing field {pattern} in {path}")
         return cast(m.group(1))
 
-    return {
+    def get_opt(pattern, cast=float, default=None):
+        m = re.search(pattern, text)
+        return cast(m.group(1)) if m else default
+
+    d = {
         "path": path,
         "text": text,
         "ron": get(r"-ResistanceOn \(ohm\):\s*([0-9.eE+-]+)"),
@@ -83,7 +89,52 @@ def parse_cell(path: Path):
         "efe": get(r"-FerroelectricPermittivity:\s*([0-9.eE+-]+)"),
         "eil": get(r"-InterlayerPermittivity:\s*([0-9.eE+-]+)"),
         "eta": get(r"-Eta:\s*([0-9.eE+-]+)"),
+        # Transport parameters (optional — present only in FeDiode cells)
+        "chi_fe_ev":    get_opt(r"-ElectronAffinityFerroelectric \(eV\):\s*([0-9.eE+-]+)"),
+        "chi_il_ev":    get_opt(r"-ElectronAffinityInterlayer \(eV\):\s*([0-9.eE+-]+)"),
+        "meff_fe":      get_opt(r"-EffectiveMassFerroelectric \(m_e\):\s*([0-9.eE+-]+)"),
+        "meff_il":      get_opt(r"-EffectiveMassInterlayer \(m_e\):\s*([0-9.eE+-]+)"),
+        "trap_depth_ev":get_opt(r"-TrapDepth \(eV\):\s*([0-9.eE+-]+)"),
+        "wf_anode_ev":  get_opt(r"-WorkFunctionAnode \(eV\):\s*([0-9.eE+-]+)"),
+        "wf_cathode_ev":get_opt(r"-WorkFunctionCathode \(eV\):\s*([0-9.eE+-]+)"),
     }
+    return d
+
+
+def wkb_onoff(mw_minor_v, phi_B_eV, m_eff_rel, t_IL_m):
+    """WKB direct-tunneling ON/OFF ratio through the interlayer.
+
+    The polarization-induced memory window (MW_minor, V) acts as a symmetric
+    barrier modulation at the anode/interlayer junction:
+        Phi_ON  = max(0, phi_B - MW/2)  [P lowers barrier in ON state]
+        Phi_OFF = phi_B + MW/2          [P raises barrier in OFF state]
+
+    ON/OFF = exp(2 * t_IL * (kappa_OFF - kappa_ON))
+    where kappa = sqrt(2 * m_eff * Phi) / hbar  (WKB imaginary wave vector)
+
+    Parameters
+    ----------
+    mw_minor_v  : array-like  Memory window in volts
+    phi_B_eV    : float       Anode/IL barrier height in eV (= WF_anode - chi_IL)
+    m_eff_rel   : float       Effective mass in units of m_e
+    t_IL_m      : float       Interlayer thickness in metres
+    """
+    M_E  = 9.109e-31   # kg
+    HBAR = 1.055e-34   # J·s
+    Q    = 1.602e-19   # C
+
+    mw = np.asarray(mw_minor_v, dtype=float)
+    m  = m_eff_rel * M_E
+
+    phi_on_J  = np.maximum(0.0, phi_B_eV - mw / 2.0) * Q
+    phi_off_J = (phi_B_eV + mw / 2.0) * Q
+
+    kappa_on  = np.sqrt(2.0 * m * phi_on_J)  / HBAR
+    kappa_off = np.sqrt(2.0 * m * phi_off_J) / HBAR
+
+    # Clip exponent to avoid float overflow (any ratio >~1e300 is effectively "infinite")
+    exponent = 2.0 * t_IL_m * (kappa_off - kappa_on)
+    return np.exp(np.minimum(exponent, 700.0))
 
 
 def build_cfg(cell_file: Path, capacity_bytes: int, wordwidth: int, cfg_path: Path):
@@ -266,7 +317,10 @@ def fig2_energy_vs_vwrite():
         pr = base["pr_uc_cm2"] * 1e-2
         ec = base["ec_mv_cm"] * 1e8
         tfe = base["tfe_nm"] * 1e-9
-        c_fwd = EPS0 * base["efe"] * area_m2 / tfe
+        til = base["til_nm"] * 1e-9
+        # Series stack capacitance: 1/C' = t_FE/(ε₀·ε_FE) + t_IL/(ε₀·ε_IL)
+        # Using series C matches cell-file CapacitanceFeDiode (check 6 verifies this)
+        c_fwd = EPS0 / (tfe / base["efe"] + til / base["eil"]) * area_m2
 
         for v in v_sweep:
             e_switch_j = 2.0 * pr * ec * tfe * area_m2
@@ -303,8 +357,10 @@ def fig2_energy_vs_vwrite():
             label=f"MEASURED: {labels[d]} @ 3.0 V",
         )
 
-    # Inset zoom near operating point to clearly show low-energy measured anchors
-    axins = ax.inset_axes([0.14, 0.58, 0.30, 0.34])
+    # Inset zoom near the operating point. Use a log y-scale so the 100 nm and
+    # 200 nm per-cell anchors do not collapse onto the baseline while still
+    # keeping the 1 um anchor in the same frame.
+    axins = ax.inset_axes([0.18, 0.55, 0.33, 0.38])
     for d in [100, 200, 1000]:
         axins.plot(v_sweep, diameter_curves[d], lw=1.0, color=colors[d])
         axins.scatter(
@@ -317,8 +373,9 @@ def fig2_energy_vs_vwrite():
             zorder=7,
         )
     axins.set_xlim(2.85, 3.15)
-    axins.set_ylim(0.0, 1.0)
-    axins.set_title("Measured-point zoom", fontsize=7)
+    axins.set_yscale("log")
+    axins.set_ylim(0.003, 1.0)
+    axins.set_title("Measured anchors (log y)", fontsize=7)
     axins.tick_params(labelsize=7)
     axins.grid(alpha=0.2)
 
@@ -355,7 +412,8 @@ def fig2_energy_vs_vwrite():
 
 
 def fig3_onoff_vs_vfe(base_cell: Path):
-    base_text = base_cell.read_text()
+    c = parse_cell(base_cell)
+    base_text = c["text"]
     ec_values = [1.5, 2.0, 2.5]
     curves = {}
     vm_operating = None
@@ -366,13 +424,29 @@ def fig3_onoff_vs_vfe(base_cell: Path):
         cfg = TMP_DIR / f"fig3_Ec_{ec:.1f}.cfg"
         build_cfg(tmp_cell, 32, 16, cfg)
         out = run_nvsim(cfg)
-        vm_w, rows = parse_mw_table(out)
+        vm_w, mw_rows = parse_mw_table(out)
         if vm_operating is None and vm_w is not None:
             vm_operating = vm_w
-        vm = np.array([r["Vm"] for r in rows])
-        mw = np.array([r["MW_minor"] for r in rows])
-        onoff_op = np.array([r["ION_IOFF_op"] for r in rows])
+        vm = np.array([r["Vm"] for r in mw_rows])
+        mw = np.array([r["MW_minor"] for r in mw_rows])
+        onoff_op = np.array([r["ION_IOFF_op"] for r in mw_rows])
         curves[ec] = {"Vm": vm, "MW_minor": mw, "ONOFF_op": onoff_op}
+
+    # --- WKB transport model ---
+    # Barrier height at the anode (Ti) / interlayer (HfOx) junction:
+    #   Phi_B = WF_anode - chi_IL  (electron injection barrier into HfOx)
+    # MW_minor from the polarization model is used as the symmetric barrier
+    # modulation: Phi_ON = Phi_B - MW/2, Phi_OFF = Phi_B + MW/2.
+    # This combines the Toprasertpong polarization model with the WKB tunneling
+    # physics from krishkc5/ferroelectric-diode-model (m*, chi values).
+    has_transport = all(c.get(k) is not None
+                        for k in ("wf_anode_ev", "chi_il_ev", "meff_il"))
+    wkb_curve = None
+    phi_B_eV = None
+    if has_transport:
+        phi_B_eV = c["wf_anode_ev"] - c["chi_il_ev"]   # 4.33 - 2.0 = 2.33 eV
+        t_IL_m   = c["til_nm"] * 1e-9
+        wkb_curve = wkb_onoff(curves[2.5]["MW_minor"], phi_B_eV, c["meff_il"], t_IL_m)
 
     fig, ax = plt.subplots(figsize=(4.7, 3.0))
     colors = {1.5: "#1f77b4", 2.0: "#ff7f0e", 2.5: "#2ca02c"}
@@ -385,6 +459,18 @@ def fig3_onoff_vs_vfe(base_cell: Path):
             label=f"SIMULATED: Ec = {ec:.1f} MV/cm",
         )
 
+    if wkb_curve is not None:
+        ax.plot(
+            curves[2.5]["Vm"],
+            wkb_curve,
+            lw=1.8,
+            ls="--",
+            color="black",
+            label=(f"TRANSPORT: WKB tunneling\n"
+                   f"  m*={c['meff_il']}m_e, "
+                   f"\u03a6_B={phi_B_eV:.2f}eV"),
+        )
+
     measured_x = vm_operating if vm_operating is not None else curves[2.5]["Vm"][-1]
     measured_y = 4000.0
     ax.scatter(
@@ -393,37 +479,41 @@ def fig3_onoff_vs_vfe(base_cell: Path):
         marker="*",
         s=90,
         c="black",
-        label="MEASURED: ON/OFF = 4×10^3",
+        label="MEASURED: ON/OFF = 4\u00d710\u00b3",
         zorder=5,
     )
 
     ax.set_yscale("log")
-    ax.set_xlabel("VFE (V)")
+    ax.set_xlabel("V$_{FE}$ (V)")
     ax.set_ylabel("ON/OFF ratio")
-    ax.set_title("Figure 3. ON/OFF Ratio vs VFE (MW Model)")
+    ax.set_title("Figure 3. ON/OFF Ratio vs V$_{FE}$")
     ax.grid(alpha=0.25, which="both")
     place_legend_right(ax, ncol=1)
-    fig.subplots_adjust(left=0.14, right=0.62, top=0.88, bottom=0.20)
+    fig.subplots_adjust(left=0.14, right=0.55, top=0.88, bottom=0.20)
     fig.savefig(OUT_DIR / "Figure3_onoff_vs_vfe.png", dpi=300, bbox_inches="tight")
     fig.savefig(OUT_DIR / "Figure3_onoff_vs_vfe.pdf", bbox_inches="tight")
     plt.close(fig)
 
-    rows = []
+    csv_header = [
+        "vfe_V",
+        "onoff_Ec1p5_MW_simulated",
+        "onoff_Ec2p0_MW_simulated",
+        "onoff_Ec2p5_MW_simulated",
+        "onoff_WKB_transport",
+        "onoff_measured_anchor",
+    ]
+    csv_rows = []
+    wkb_arr = wkb_curve if wkb_curve is not None else [None] * len(curves[2.5]["Vm"])
     for i in range(len(curves[2.5]["Vm"])):
-        rows.append(
-            (
-                curves[1.5]["Vm"][i],
-                curves[1.5]["ONOFF_op"][i],
-                curves[2.0]["ONOFF_op"][i],
-                curves[2.5]["ONOFF_op"][i],
-                measured_y if abs(curves[2.5]["Vm"][i] - measured_x) < 1e-6 else "",
-            )
-        )
-    save_csv(
-        OUT_DIR / "Figure3_onoff_vs_vfe.csv",
-        ["vfe_V", "onoff_Ec1p5_simulated", "onoff_Ec2p0_simulated", "onoff_Ec2p5_simulated", "onoff_measured_anchor"],
-        rows,
-    )
+        csv_rows.append((
+            curves[1.5]["Vm"][i],
+            curves[1.5]["ONOFF_op"][i],
+            curves[2.0]["ONOFF_op"][i],
+            curves[2.5]["ONOFF_op"][i],
+            wkb_arr[i] if wkb_arr[i] is not None else "",
+            measured_y if abs(curves[2.5]["Vm"][i] - measured_x) < 1e-6 else "",
+        ))
+    save_csv(OUT_DIR / "Figure3_onoff_vs_vfe.csv", csv_header, csv_rows)
 
 
 def fig4_read_margin_vs_size(cell_200: Path):
@@ -459,9 +549,17 @@ def fig4_read_margin_vs_size(cell_200: Path):
     ax.grid(alpha=0.25)
     place_legend_right(ax, ncol=1)
 
-    # Add measured-input annotation
-    txt = f"MEASURED input: Ron={ron:.2e} ohm, Roff={roff:.2e} ohm"
-    ax.text(0.02, 0.04, txt, transform=ax.transAxes, fontsize=7, va="bottom")
+    # Add measured-input annotation in a compact callout tucked into the lower
+    # left corner so it reads as context rather than competing with the curve.
+    txt = f"Measured inputs\nRon = {ron:.2e} Ω\nRoff = {roff:.2e} Ω"
+    ax.text(
+        0.04, 0.07, txt,
+        transform=ax.transAxes,
+        fontsize=6.5,
+        va="bottom",
+        ha="left",
+        bbox=dict(boxstyle="round,pad=0.22", facecolor="white", edgecolor="0.75", alpha=0.9),
+    )
 
     fig.subplots_adjust(left=0.14, right=0.62, top=0.88, bottom=0.20)
     fig.savefig(OUT_DIR / "Figure4_read_margin_vs_size.png", dpi=300, bbox_inches="tight")
@@ -609,12 +707,19 @@ def write_self_consistency_report():
 
     c100 = parse_cell(DIAMETER_TO_CELL[100])
     c200 = parse_cell(DIAMETER_TO_CELL[200])
-    c1u = parse_cell(DIAMETER_TO_CELL[1000])
+    c1u  = parse_cell(DIAMETER_TO_CELL[1000])
 
+    # ------------------------------------------------------------------ #
+    # CHECK 1: write-energy area scaling  E ∝ r²                         #
+    # ------------------------------------------------------------------ #
     ratio_200_100 = c200["set_energy_pj"] / c100["set_energy_pj"]
-    ratio_1u_100 = c1u["set_energy_pj"] / c100["set_energy_pj"]
-    pass_e_scaling = abs(ratio_200_100 - 4.0) / 4.0 <= 0.05 and abs(ratio_1u_100 - 100.0) / 100.0 <= 0.05
+    ratio_1u_100  = c1u["set_energy_pj"]  / c100["set_energy_pj"]
+    pass_e_scaling = (abs(ratio_200_100 -   4.0) /   4.0 <= 0.05 and
+                      abs(ratio_1u_100  - 100.0) / 100.0 <= 0.05)
 
+    # ------------------------------------------------------------------ #
+    # CHECK 2: read margin > 50 % at 2 KB (128×128) crossbar             #
+    # ------------------------------------------------------------------ #
     margin_2kb = None
     for r in fig4:
         if r["is_2KB_point"].strip().lower() == "yes":
@@ -622,45 +727,292 @@ def write_self_consistency_report():
             break
     pass_margin = margin_2kb is not None and margin_2kb > 50.0
 
-    # Re-run baseline 2KB config to parse MW operating-point ON/OFF from current executable
-    out = subprocess.run(
-        [str(NVSIM_EXE), str(ROOT / "1FeD-AlScN-200nm.cfg")],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
+    # ------------------------------------------------------------------ #
+    # CHECK 3: MW model (Eqs. 8/9/10) reproduces ON/OFF=4e3              #
+    #                                                                     #
+    # Re-run the 2 KB / 200 nm config (same config that the figures use) #
+    # and parse the LAST row of the MW sweep table, which corresponds to  #
+    # Vm at Vwrite.  The ION/IOFF_op in that row is n_eff-calibrated to  #
+    # the measured ratio, so by construction it equals ~4000.            #
+    # The check validates that the NVSim executable and cell parameters  #
+    # together reproduce this without error.                             #
+    # ------------------------------------------------------------------ #
+    mw_cfg = TMP_DIR / "sc_check_200nm.cfg"
+    build_cfg(DIAMETER_TO_CELL[200], 2048, 128, mw_cfg)
+    mw_out = subprocess.run(
+        [str(NVSIM_EXE), str(mw_cfg)],
+        cwd=ROOT, capture_output=True, text=True, check=False,
     ).stdout
-    m = re.search(r"2\.5862\s+[0-9.eE+-]+\s+[0-9.]+\s+([0-9.eE+-]+)\s+[0-9.eE+-]+", out)
-    ionoff_op = float(m.group(1)) if m else float("nan")
+    # Match any MW table data row: Vm  alphaV  MW_minor  ION/IOFF_op  ION/IOFF_max
+    mw_table_rows = re.findall(
+        r"^\s+([0-9]+\.[0-9]+)\s+[0-9.eE+-]+\s+([0-9]+\.[0-9]+)\s+([0-9.eE+-]+)\s+[0-9.eE+-]+",
+        mw_out, re.MULTILINE,
+    )
+    ionoff_op = float("nan")
+    vm_at_vwrite = float("nan")
+    mw_at_vwrite = float("nan")
+    if mw_table_rows:
+        vm_at_vwrite  = float(mw_table_rows[-1][0])
+        mw_at_vwrite  = float(mw_table_rows[-1][1])
+        ionoff_op     = float(mw_table_rows[-1][2])
     measured = 4000.0
-    err = abs(ionoff_op - measured) / measured if not math.isnan(ionoff_op) else 1.0
-    pass_mw = err <= 0.20
+    err_mw   = abs(ionoff_op - measured) / measured if not math.isnan(ionoff_op) else 1.0
+    pass_mw  = err_mw <= 0.20
 
-    read_lat_2kb = None
+    # ------------------------------------------------------------------ #
+    # CHECK 4: write latency in nanosecond range (slide 4 claim)         #
+    # ------------------------------------------------------------------ #
+    read_lat_2kb  = None
     write_lat_2kb = None
     for r in fig1:
         if int(float(r["subarray_size"])) == 128:
-            read_lat_2kb = float(r["read_latency_ns_simulated"])
+            read_lat_2kb  = float(r["read_latency_ns_simulated"])
             write_lat_2kb = float(r["write_latency_ns_simulated"])
             break
     pass_latency = write_lat_2kb is not None and (1.0 <= write_lat_2kb <= 100.0)
 
+    # ------------------------------------------------------------------ #
+    # CHECK 5: Vpol formula  (Fe-NVSim transport mapping)                #
+    # Vpol = 2·Pr / (ε₀·(ε_FE/t_FE + ε_IL/t_IL))                       #
+    # Expected ≈ 28.7 V for AlScN (Sc 32%) stack                        #
+    # ------------------------------------------------------------------ #
+    EPS0 = 8.854e-12
+    Pr   = c200["pr_uc_cm2"] * 1e-2          # C/m²
+    tFE  = c200["tfe_nm"]    * 1e-9          # m
+    tIL  = c200["til_nm"]    * 1e-9          # m
+    eFE  = c200["efe"]
+    eIL  = c200["eil"]
+    # Vpol = 2·Pr / C_series  where 1/C_series = (t_FE/ε_FE + t_IL/ε_IL)/ε₀
+    # → Vpol = 2·Pr · (t_FE/ε_FE + t_IL/ε_IL) / ε₀
+    vpol_calc = 2.0 * Pr * (tFE / eFE + tIL / eIL) / EPS0
+    # parse Vpol from NVSim output for comparison
+    m_vpol = re.search(r"Vpol\s+\(polarization junction shift\)=\s*([0-9.]+)", mw_out)
+    vpol_nvsim = float(m_vpol.group(1)) if m_vpol else float("nan")
+    pass_vpol = (not math.isnan(vpol_nvsim) and
+                 abs(vpol_calc - vpol_nvsim) / vpol_calc <= 0.01)   # <1 % agreement
+
+    # ------------------------------------------------------------------ #
+    # CHECK 6: series capacitance density C' (junction capacitance model)#
+    # C' = ε₀ / (t_FE/ε_FE + t_IL/ε_IL)  ≈ 10.451 mF/m²              #
+    # C_fwd = C' × A_device  (must match cell file CapacitanceFeDiode)  #
+    # ------------------------------------------------------------------ #
+    cprime = EPS0 / (tFE / eFE + tIL / eIL)                  # F/m²
+    A200   = math.pi * (200e-9 / 2.0) ** 2                   # m²
+    c_fwd_calc  = cprime * A200
+    c_fwd_cell  = float(re.search(r"-CapacitanceFeDiode \(F\):\s*([0-9.eE+-]+)",
+                                  DIAMETER_TO_CELL[200].read_text()).group(1))
+    pass_cap = abs(c_fwd_calc - c_fwd_cell) / c_fwd_cell <= 0.01
+
+    # ------------------------------------------------------------------ #
+    # CHECK 7: WKB transport model matches measured ON/OFF within 20 %   #
+    # ON/OFF_WKB = exp(2·t_IL·(κ_OFF − κ_ON)/ℏ)                        #
+    # Uses transport params from cell file (m*_HfO2, WF_Ti, chi_HfO2)  #
+    # ------------------------------------------------------------------ #
+    wkb_val = float("nan")
+    pass_wkb = False
+    if all(c200.get(k) is not None
+           for k in ("wf_anode_ev", "chi_il_ev", "meff_il")):
+        phi_B = c200["wf_anode_ev"] - c200["chi_il_ev"]
+        if not math.isnan(mw_at_vwrite) and mw_at_vwrite > 0:
+            wkb_val = float(wkb_onoff(mw_at_vwrite, phi_B, c200["meff_il"], tIL))
+            pass_wkb = abs(wkb_val - measured) / measured <= 0.20
+
+    # ------------------------------------------------------------------ #
+    # CHECK 8: Vm / Vwrite voltage division                               #
+    # Vm_expected = Vwrite * (tFE/eFE) / (tFE/eFE + tIL/eIL)            #
+    # ------------------------------------------------------------------ #
+    vwrite = c200["vwrite"]
+    vm_expected = vwrite * (tFE / eFE) / (tFE / eFE + tIL / eIL)
+    pass_vm_div = (not math.isnan(vm_at_vwrite) and
+                   abs(vm_at_vwrite - vm_expected) / vm_expected <= 0.02)
+
+    # ------------------------------------------------------------------ #
+    # CHECK 9: MW sweep monotonically non-decreasing and                  #
+    # MW_minor at Vwrite < MW_MFS (ideal MFS window, Eq. 8)              #
+    # ------------------------------------------------------------------ #
+    mw_values = [float(r[1]) for r in mw_table_rows] if mw_table_rows else []
+    pass_mono = (len(mw_values) >= 2 and
+                 all(mw_values[i+1] >= mw_values[i] - 1e-6
+                     for i in range(len(mw_values) - 1)))
+    # MW_MFS from Eq. 8: ideal MFS window = 2*(2Pr - ε₀·eFE·Ec)*tFE / (ε₀·eFE)
+    Ec   = c200["ec_mv_cm"] * 1e8
+    mw_mfs = 2.0 * (2.0 * Pr - EPS0 * eFE * Ec) * tFE / (EPS0 * eFE)
+    pass_mfs = not math.isnan(mw_at_vwrite) and mw_at_vwrite < mw_mfs
+
+    # ------------------------------------------------------------------ #
+    # CHECK 10: n_eff ideality factor in physical range 1 ≤ n_eff ≤ 20   #
+    # n_eff = MW_minor / (kT·ln(ION/IOFF_op))                            #
+    # ------------------------------------------------------------------ #
+    n_eff = float("nan")
+    if not math.isnan(mw_at_vwrite) and not math.isnan(ionoff_op) and ionoff_op > 1:
+        n_eff = mw_at_vwrite / (KT_Q * math.log(ionoff_op))
+    pass_neff = not math.isnan(n_eff) and 1.0 <= n_eff <= 20.0
+
+    # ------------------------------------------------------------------ #
+    # CHECK 11: C_fwd area scaling r² across all 3 diameters             #
+    # C200/C100 ≈ 4, C1000/C100 ≈ 100  (expected from pi·r² geometry)   #
+    # ------------------------------------------------------------------ #
+    c_fwd_100 = float(re.search(r"-CapacitanceFeDiode \(F\):\s*([0-9.eE+-]+)",
+                                DIAMETER_TO_CELL[100].read_text()).group(1))
+    c_fwd_1um = float(re.search(r"-CapacitanceFeDiode \(F\):\s*([0-9.eE+-]+)",
+                                DIAMETER_TO_CELL[1000].read_text()).group(1))
+    ratio_c200_c100 = c_fwd_cell / c_fwd_100
+    ratio_c1um_c100 = c_fwd_1um / c_fwd_100
+    pass_cap_scale = (abs(ratio_c200_c100 -   4.0) /   4.0 <= 0.05 and
+                      abs(ratio_c1um_c100 - 100.0) / 100.0 <= 0.05)
+
+    # ------------------------------------------------------------------ #
+    # CHECK 12: Fig 2 energy at Vwrite=3V matches cell file within 1 %   #
+    # (validates the series-capacitance fix in fig2_energy_vs_vwrite)     #
+    # ------------------------------------------------------------------ #
+    fig2_path = OUT_DIR / "Figure2_write_energy_vs_voltage.csv"
+    pass_fig2_match = False
+    fig2_energy_at_3v = {100: float("nan"), 200: float("nan"), 1000: float("nan")}
+    if fig2_path.exists():
+        fig2_rows = list(csv.DictReader(fig2_path.read_text().splitlines()))
+        for row in fig2_rows:
+            if abs(float(row["write_voltage_V"]) - 3.0) < 1e-6:
+                # Use the per-cell analytical energy (measured_anchor column), NOT
+                # the NVSim array-level energy (simulated column), for this check.
+                fig2_energy_at_3v[100]  = float(row["energy_100nm_pj_measured_anchor"]) if row["energy_100nm_pj_measured_anchor"] else float("nan")
+                fig2_energy_at_3v[200]  = float(row["energy_200nm_pj_measured_anchor"]) if row["energy_200nm_pj_measured_anchor"] else float("nan")
+                fig2_energy_at_3v[1000] = float(row["energy_1um_pj_measured_anchor"]) if row["energy_1um_pj_measured_anchor"] else float("nan")
+                break
+        errs12 = []
+        for d_12, cell_12 in [(100, c100), (200, c200), (1000, c1u)]:
+            e_f2 = fig2_energy_at_3v[d_12]
+            e_cl = cell_12["set_energy_pj"]
+            if not math.isnan(e_f2) and e_cl > 0:
+                errs12.append(abs(e_f2 - e_cl) / e_cl)
+        pass_fig2_match = len(errs12) == 3 and all(e <= 0.01 for e in errs12)
+
+    # ------------------------------------------------------------------ #
+    # CHECK 13: NVSim array write energy ≥ per-cell write energy          #
+    # (array energy must include wire/peripheral overhead)                #
+    # ------------------------------------------------------------------ #
+    fig5_path = OUT_DIR / "Figure5_energy_latency_vs_diameter.csv"
+    fig5_rows = []
+    pass_array_ge_cell = False
+    diameter_map = {100: c100, 200: c200, 1000: c1u}
+    if fig5_path.exists():
+        fig5_rows = list(csv.DictReader(fig5_path.read_text().splitlines()))
+        results_ge = []
+        for row in fig5_rows:
+            d_5 = int(float(row["diameter_nm"]))
+            e_array = float(row["write_energy_pj_simulated"])
+            e_cell5 = diameter_map[d_5]["set_energy_pj"]
+            results_ge.append(e_array >= e_cell5)
+        pass_array_ge_cell = len(results_ge) == 3 and all(results_ge)
+
+    # ------------------------------------------------------------------ #
+    # CHECK 14: E_switch fraction > 50 % (switching-energy dominated)    #
+    # For all 3 diameters at Vwrite = 3V                                  #
+    # ------------------------------------------------------------------ #
+    esw_fractions = {}
+    for d_nm, cell_sw in [(100, c100), (200, c200), (1000, c1u)]:
+        area_sw  = math.pi * (d_nm * 1e-9 / 2.0) ** 2
+        pr_sw   = cell_sw["pr_uc_cm2"] * 1e-2
+        ec_sw   = cell_sw["ec_mv_cm"] * 1e8
+        tfe_sw  = cell_sw["tfe_nm"] * 1e-9
+        til_sw  = cell_sw["til_nm"] * 1e-9
+        efe_sw  = cell_sw["efe"]
+        eil_sw  = cell_sw["eil"]
+        e_sw    = 2.0 * pr_sw * ec_sw * tfe_sw * area_sw
+        c_sw    = EPS0 / (tfe_sw / efe_sw + til_sw / eil_sw) * area_sw
+        e_ch_sw = c_sw * (3.0 ** 2)
+        esw_fractions[d_nm] = e_sw / (e_sw + e_ch_sw)
+    pass_esw_dom = all(f > 0.5 for f in esw_fractions.values())
+
+    # ------------------------------------------------------------------ #
+    # Report                                                              #
+    # ------------------------------------------------------------------ #
     lines = []
-    lines.append("Self-Consistency Check (updated after MW-model fix)")
+    lines.append("Self-Consistency Check — AlScN FeDiode / Fe-NVSim theory verification")
+    lines.append("Reference: Toprasertpong et al. IEEE TED 2022 (Eqs. 8/9/10),")
+    lines.append("           krishkc5/ferroelectric-diode-model (transport params)")
     lines.append("")
-    lines.append(f"1) Write-energy area scaling E~r^2: {'PASS' if pass_e_scaling else 'FAIL'}")
-    lines.append(f"   E200/E100 = {ratio_200_100:.3f} (expected 4.000)")
-    lines.append(f"   E1um/E100 = {ratio_1u_100:.3f} (expected 100.000)")
+
+    lines.append(f"1) Write-energy area scaling E∝r²: {'PASS' if pass_e_scaling else 'FAIL'}")
+    lines.append(f"   E200/E100 = {ratio_200_100:.3f} (expected 4.000,  ±5 %)")
+    lines.append(f"   E1um/E100 = {ratio_1u_100:.3f} (expected 100.000, ±5 %)")
     lines.append("")
-    lines.append(f"2) Read margin at 2KB (128x128) > 50%: {'PASS' if pass_margin else 'FAIL'}")
+
+    lines.append(f"2) Read margin at 2 KB (128×128) > 50 %: {'PASS' if pass_margin else 'FAIL'}")
     lines.append(f"   Margin = {margin_2kb:.3f}%")
     lines.append("")
-    lines.append(f"3) MW model reproduces ON/OFF=4e3 within 20% at operating voltage: {'PASS' if pass_mw else 'FAIL'}")
-    lines.append(f"   ION/IOFF_op @ VFE=2.5862V = {ionoff_op:.6g}, target=4000, error={err*100:.3f}%")
+
+    lines.append(f"3) MW model (Eqs. 8/9/10) reproduces ION/IOFF=4e3 within 20 %: {'PASS' if pass_mw else 'FAIL'}")
+    lines.append(f"   Config: 2 KB / 200 nm / 128×128  (same config as Figure 1/5)")
+    lines.append(f"   Vm at Vwrite (last MW table row) = {vm_at_vwrite:.4f} V")
+    lines.append(f"   MW_minor at Vwrite               = {mw_at_vwrite:.4f} V")
+    lines.append(f"   ION/IOFF_op (n_eff-calibrated)   = {ionoff_op:.6g}")
+    lines.append(f"   Target                           = {measured:.0f}, error = {err_mw*100:.2f}%")
     lines.append("")
-    lines.append(f"4) Latency at 200nm / 2KB is nanosecond-range (slide 4 consistency): {'PASS' if pass_latency else 'FAIL'}")
-    lines.append(f"   Simulated write latency @128x128 = {write_lat_2kb:.3f} ns")
-    lines.append(f"   Simulated read latency  @128x128 = {read_lat_2kb:.3f} ns")
+
+    lines.append(f"4) Write latency at 2 KB is nanosecond-range (slide 4): {'PASS' if pass_latency else 'FAIL'}")
+    lines.append(f"   Write latency @128×128 = {write_lat_2kb:.3f} ns  (criterion: 1–100 ns)")
+    lines.append(f"   Read  latency @128×128 = {read_lat_2kb:.3f} ns")
+    lines.append("")
+
+    lines.append(f"5) Vpol formula (Fe-NVSim transport mapping): {'PASS' if pass_vpol else 'FAIL'}")
+    lines.append(f"   Vpol = 2·Pr/(ε₀·(ε_FE/t_FE + ε_IL/t_IL))")
+    lines.append(f"   Analytical = {vpol_calc:.3f} V")
+    lines.append(f"   NVSim      = {vpol_nvsim:.3f} V  (must agree within 1 %)")
+    lines.append("")
+
+    lines.append(f"6) Series capacitance C' matches cell file: {'PASS' if pass_cap else 'FAIL'}")
+    lines.append(f"   C' = ε₀/(t_FE/ε_FE + t_IL/ε_IL) = {cprime*1e3:.4f} mF/m²  (ref: 10.451 mF/m²)")
+    lines.append(f"   C_fwd (calc) = {c_fwd_calc:.4e} F")
+    lines.append(f"   C_fwd (cell) = {c_fwd_cell:.4e} F  (must agree within 1 %)")
+    lines.append("")
+
+    lines.append(f"7) WKB transport model matches measured ON/OFF within 20 %: {'PASS' if pass_wkb else 'FAIL'}")
+    lines.append(f"   Φ_B = WF_Ti − χ_HfO2 = {c200.get('wf_anode_ev', float('nan')):.2f} − {c200.get('chi_il_ev', float('nan')):.2f} = {c200.get('wf_anode_ev',0)-c200.get('chi_il_ev',0):.2f} eV")
+    lines.append(f"   m*_HfO2 = {c200.get('meff_il', float('nan'))} m_e,  t_IL = {c200['til_nm']} nm")
+    lines.append(f"   ON/OFF_WKB = {wkb_val:.1f}  (target {measured:.0f}, ±20 %)")
+    lines.append("")
+
+    lines.append(f"8) Vm/Vwrite voltage division: {'PASS' if pass_vm_div else 'FAIL'}")
+    lines.append(f"   Vm_expected = {vwrite:.1f} * (tFE/eFE)/(tFE/eFE + tIL/eIL) = {vm_expected:.4f} V")
+    lines.append(f"   Vm from NVSim (last MW row) = {vm_at_vwrite:.4f} V  (must agree within 2 %)")
+    lines.append("")
+
+    lines.append(f"9) MW sweep monotone and MW_minor < MW_MFS: {'PASS' if (pass_mono and pass_mfs) else 'FAIL'}")
+    lines.append(f"   Monotonically non-decreasing ({len(mw_values)} rows): {'yes' if pass_mono else 'no'}")
+    lines.append(f"   MW_MFS (ideal MFS, Eq. 8) = {mw_mfs:.4f} V")
+    lines.append(f"   MW_minor at Vwrite        = {mw_at_vwrite:.4f} V  (must be < MW_MFS)")
+    lines.append("")
+
+    lines.append(f"10) n_eff ideality factor in physical range [1, 20]: {'PASS' if pass_neff else 'FAIL'}")
+    lines.append(f"    n_eff = MW_minor / (kT·ln(ION/IOFF)) = {mw_at_vwrite:.4f} / ({KT_Q:.5f}·ln({ionoff_op:.0f})) = {n_eff:.3f}")
+    lines.append("")
+
+    lines.append(f"11) C_fwd area scaling r² across diameters: {'PASS' if pass_cap_scale else 'FAIL'}")
+    lines.append(f"    C200/C100 = {ratio_c200_c100:.3f}  (expected 4.000, ±5 %)")
+    lines.append(f"    C1um/C100 = {ratio_c1um_c100:.3f}  (expected 100.000, ±5 %)")
+    lines.append("")
+
+    lines.append(f"12) Fig 2 energy at 3V matches cell file within 1 %: {'PASS' if pass_fig2_match else 'FAIL'}")
+    for d_12, cell_12 in [(100, c100), (200, c200), (1000, c1u)]:
+        e_f2 = fig2_energy_at_3v[d_12]
+        e_cl = cell_12["set_energy_pj"]
+        if not math.isnan(e_f2):
+            err12 = abs(e_f2 - e_cl) / e_cl * 100
+            lines.append(f"    {d_12} nm: Fig2 = {e_f2:.6g} pJ, cell = {e_cl:.6g} pJ, err = {err12:.2f}%")
+    lines.append("")
+
+    lines.append(f"13) NVSim array write energy ≥ per-cell write energy: {'PASS' if pass_array_ge_cell else 'FAIL'}")
+    for row in fig5_rows:
+        d_5 = int(float(row["diameter_nm"]))
+        e_arr = float(row["write_energy_pj_simulated"])
+        e_cell5 = diameter_map[d_5]["set_energy_pj"]
+        lines.append(f"    {d_5} nm: array = {e_arr:.4g} pJ, cell = {e_cell5:.4g} pJ  "
+                     f"({'≥' if e_arr >= e_cell5 else '<'})")
+    lines.append("")
+
+    lines.append(f"14) E_switch fraction > 50 % at Vwrite=3V (switching-dominated): {'PASS' if pass_esw_dom else 'FAIL'}")
+    for d_nm in [100, 200, 1000]:
+        lines.append(f"    {d_nm} nm: E_sw fraction = {esw_fractions[d_nm]*100:.1f}%")
 
     (OUT_DIR / "self_consistency_check.txt").write_text("\n".join(lines), encoding="utf-8")
 
@@ -679,6 +1031,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 

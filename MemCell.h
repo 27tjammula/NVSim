@@ -126,6 +126,14 @@ public:
 	double ferroelectricPermittivity;   /* Relative permittivity of ferroelectric layer eFE (dimensionless) */
 	double eta;                         /* Squareness of hysteresis loop eta = Pr/Ps (auto-calculated if 0) */
 	std::string ferroelectricMaterial;  /* Material label for display (e.g., "AlScN") */
+	/* Transport parameters (from band-diagram model; optional, used for future FN/TAT model) */
+	double electronAffinityFerroelectric; /* Electron affinity chi_FE, Unit: eV (e.g. 1.0 for AlScN) */
+	double electronAffinityInterlayer;    /* Electron affinity chi_IL, Unit: eV (e.g. 2.0 for HfO2) */
+	double effectiveMassFerroelectric;    /* Tunneling effective mass m*_FE, Unit: m_e (e.g. 0.3 for AlScN) */
+	double effectiveMassInterlayer;       /* Tunneling effective mass m*_IL, Unit: m_e (e.g. 0.11 for HfO2) */
+	double trapDepth;                     /* Trap energy depth below conduction band, Unit: eV (e.g. 0.8) */
+	double workFunctionAnode;             /* Anode electrode work function, Unit: eV (e.g. 4.33 for Ti) */
+	double workFunctionCathode;           /* Cathode electrode work function, Unit: eV (e.g. 4.28 for Al) */
 
 	/* For NAND flash */
 	double flashEraseVoltage;		/* The erase voltage, Unit: V, highest W/E voltage in ITRS sheet */

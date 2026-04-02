@@ -102,6 +102,13 @@ MemCell::MemCell() {
 	ferroelectricPermittivity = 0;
 	eta                       = 0;
 	ferroelectricMaterial     = "";
+	electronAffinityFerroelectric = 0;
+	electronAffinityInterlayer    = 0;
+	effectiveMassFerroelectric    = 0;
+	effectiveMassInterlayer       = 0;
+	trapDepth                     = 0;
+	workFunctionAnode             = 0;
+	workFunctionCathode           = 0;
 }
 
 MemCell::~MemCell() {
@@ -532,6 +539,62 @@ void MemCell::ReadCellFromFile(const string & inputFile)
 			}
 			continue;
 		}
+
+		if (!strncmp("-ElectronAffinityFerroelectric", line, strlen("-ElectronAffinityFerroelectric"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -ElectronAffinityFerroelectric is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-ElectronAffinityFerroelectric (eV): %lf", &electronAffinityFerroelectric);
+			continue;
+		}
+
+		if (!strncmp("-ElectronAffinityInterlayer", line, strlen("-ElectronAffinityInterlayer"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -ElectronAffinityInterlayer is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-ElectronAffinityInterlayer (eV): %lf", &electronAffinityInterlayer);
+			continue;
+		}
+
+		if (!strncmp("-EffectiveMassFerroelectric", line, strlen("-EffectiveMassFerroelectric"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -EffectiveMassFerroelectric is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-EffectiveMassFerroelectric (m_e): %lf", &effectiveMassFerroelectric);
+			continue;
+		}
+
+		if (!strncmp("-EffectiveMassInterlayer", line, strlen("-EffectiveMassInterlayer"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -EffectiveMassInterlayer is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-EffectiveMassInterlayer (m_e): %lf", &effectiveMassInterlayer);
+			continue;
+		}
+
+		if (!strncmp("-TrapDepth", line, strlen("-TrapDepth"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -TrapDepth is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-TrapDepth (eV): %lf", &trapDepth);
+			continue;
+		}
+
+		if (!strncmp("-WorkFunctionAnode", line, strlen("-WorkFunctionAnode"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -WorkFunctionAnode is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-WorkFunctionAnode (eV): %lf", &workFunctionAnode);
+			continue;
+		}
+
+		if (!strncmp("-WorkFunctionCathode", line, strlen("-WorkFunctionCathode"))) {
+			if (memCellType != FeDiode)
+				cout << "Warning: -WorkFunctionCathode is ignored because the memory cell is not FeDiode." << endl;
+			else
+				sscanf(line, "-WorkFunctionCathode (eV): %lf", &workFunctionCathode);
+			continue;
+		}
 	}
 
 	/* Auto-calculate eta from Pr/Ps if not explicitly provided */
@@ -900,6 +963,18 @@ void MemCell::CalculateMemoryWindow()
 		     << "   eIL = " << eIL << endl;
 	cout << " Vwrite = " << Vg << " V"
 	     << "   Vm (FE layer at Vwrite) = " << Vm << " V" << endl;
+	/* Print transport parameters if provided */
+	if (workFunctionAnode > 0 || workFunctionCathode > 0)
+		cout << " WF anode = " << workFunctionAnode << " eV"
+		     << "   WF cathode = " << workFunctionCathode << " eV" << endl;
+	if (electronAffinityFerroelectric > 0 || electronAffinityInterlayer > 0)
+		cout << " chi_FE = " << electronAffinityFerroelectric << " eV"
+		     << "   chi_IL = " << electronAffinityInterlayer << " eV" << endl;
+	if (effectiveMassFerroelectric > 0 || effectiveMassInterlayer > 0)
+		cout << " m*_FE = " << effectiveMassFerroelectric << " m_e"
+		     << "   m*_IL = " << effectiveMassInterlayer << " m_e" << endl;
+	if (trapDepth > 0)
+		cout << " Trap depth = " << trapDepth << " eV" << endl;
 	cout << "------------------------------------------------------------" << endl;
 	cout << " MW_MFS  (ideal MFS,  Eq.8)          = " << mw_mfs << " V" << endl;
 	cout << " Vpol    (polarization junction shift)= " << Vpol   << " V" << endl;

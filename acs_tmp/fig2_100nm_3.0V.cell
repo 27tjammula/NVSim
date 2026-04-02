@@ -11,16 +11,18 @@
 #   Vread = 0.2 V, Iread_on = 0.2 uA => Ron = 1 Mohm
 #   Roff = Ron * 4e3 = 4 Gohm
 #
-# Junction capacitance model requested:
-#   C_fwd = eps0 * epsFE * A / tFE
-#         = 8.854e-12 * 10 * A / 10e-9 = 6.955e-17 F
-#   C_rev = 0.5 * C_fwd = 3.477e-17 F (reverse-biased, smaller)
+# Junction capacitance model (corrected permittivities from github.com/krishkc5/ferroelectric-diode-model):
+#   eFE = 16 (AlScN, materials.py baseline), eIL = 18 (HfO2 refined)
+#   Series stack: 1/C' = tIL/(eps0*eIL) + tFE/(eps0*eFE)
+#               = 4e-9/(8.854e-12*18) + 10e-9/(8.854e-12*16) = 95.69 m^2/F
+#   C' = 10.451 mF/m^2
+#   C_fwd = 10.451e-3 * A = 8.208e-17 F
+#   C_rev = 0.5 * C_fwd = 4.104e-17 F
 #
 # Write energy (provided directly, bypass CalculateWriteEnergy):
-#   E_switch = 2 * Pr * Ec * tFE * A
-#            = 2 * (15 uC/cm^2) * (2.5 MV/cm) * 10nm * A = 5.890 fJ
-#   E_charge = C_fwd * Vwrite^2 = 6.955e-17 * 3.0^2 = 0.626 fJ
-#   E_total  = 6.515 fJ = 0.006515 pJ
+#   E_switch = 2 * Pr * Ec * tFE * A = 5.890 fJ  (Pr, Ec from PPTX measured data)
+#   E_charge = C_fwd * Vwrite^2 = 8.208e-17 * 9.0 = 0.739 fJ
+#   E_total  = 6.629 fJ = 0.006629 pJ
 
 -MemCellType: FeDiode
 
@@ -41,25 +43,38 @@
 -ResetMode: voltage
 -ResetVoltage (V): 3.0
 -ResetPulse (ns): 10
--ResetEnergy (pJ): 0.00651633861
+-ResetEnergy (pJ): 0.00662919723
 
 -SetMode: voltage
 -SetVoltage (V): -3.0
 -SetPulse (ns): 10
--SetEnergy (pJ): 0.00651633861
+-SetEnergy (pJ): 0.00662919723
 
 -AccessType: None
 -VoltageDropAccessDevice (V): 0
 
--CapacitanceFeDiode (F): 6.955e-17
--CapacitanceFeDiodeReverse (F): 3.477e-17
+-CapacitanceFeDiode (F): 8.208e-17
+-CapacitanceFeDiodeReverse (F): 4.104e-17
 
 -PolarizationRemnant (uC/cm^2): 15.0
 -PolarizationSpontaneous (uC/cm^2): 18.0
 -CoerciveField (MV/cm): 2.5
 -FerroelectricThickness (nm): 10
 -InterlayerThickness (nm): 4
--InterlayerPermittivity: 25
--FerroelectricPermittivity: 10
+-InterlayerPermittivity: 18
+-FerroelectricPermittivity: 16
 -FerroelectricMaterial: AlScN
 -Eta: 0.833
+#
+# Transport parameters (from github.com/krishkc5/ferroelectric-diode-model, materials.py):
+#   chi_AlScN = 1.0 eV, chi_HfO2 = 2.0 eV (lower bound of 2.0-2.3 range)
+#   m*_AlScN  = 0.3 m_e, m*_HfO2  = 0.11 m_e
+#   Trap depth (HfO2 interfacial traps) = 0.8 eV
+#   Anode (Ti): WF = 4.33 eV, Cathode (Al): WF = 4.28 eV
+-ElectronAffinityFerroelectric (eV): 1.0
+-ElectronAffinityInterlayer (eV): 2.0
+-EffectiveMassFerroelectric (m_e): 0.3
+-EffectiveMassInterlayer (m_e): 0.11
+-TrapDepth (eV): 0.8
+-WorkFunctionAnode (eV): 4.33
+-WorkFunctionCathode (eV): 4.28

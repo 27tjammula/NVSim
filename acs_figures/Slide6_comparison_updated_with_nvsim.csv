@@ -6,4 +6,4 @@ HZO,1T1C,Yes,Yes,1.0,~,Yes,64 kbit,VLSI 2020 [4],N/A (not reported in slide 6 ex
 HZO,1 FeD,Yes,No,0.049 (0.25^2*pi),100,No,8x64, 16-layer,IEDM 2023 [5],N/A (not reported in slide 6 extract),N/A (not reported in slide 6 extract)
 IGZO,2T0C,No,Yes,135.0 (45x3),~,Yes,4x4,IEDM 2024 [6],N/A (not reported in slide 6 extract),N/A (not reported in slide 6 extract)
 Ge2Sb2Te5,1T1R,No,Yes,~,12.7,Yes,288 KB,IEDM 2024 [7],N/A (not reported in slide 6 extract),N/A (not reported in slide 6 extract)
-AlScN,1 FeD,Yes,No,0.00785 (0.05^2*pi),4e3,Yes,2 KB,This Work,26.07 (NVSim-projected),0.234 (NVSim-projected)
+AlScN,1 FeD,Yes,No,0.00785 (0.05^2*pi),4e3,Yes,2 KB,This Work,26.52 (NVSim-projected),0.234 (NVSim-projected)

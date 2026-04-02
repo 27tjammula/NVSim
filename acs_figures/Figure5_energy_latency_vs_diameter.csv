@@ -1,4 +1,4 @@
 diameter_nm,write_energy_pj_simulated,write_energy_pj_measured_anchor,write_latency_ns_simulated,write_latency_ns_measured_anchor
-100,4.93,0.006515,20.19,N/A (not available per diameter in PPT)
-200,11.67,0.026066,20.23,N/A (not available per diameter in PPT)
-1000,131.63,0.651644,20.51,N/A (not available per diameter in PPT)
+100,4.96,0.006629,20.19,N/A (not available per diameter in PPT)
+200,11.79,0.026517,20.23,N/A (not available per diameter in PPT)
+1000,134.51,0.66292,20.51,N/A (not available per diameter in PPT)

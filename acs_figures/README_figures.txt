@@ -17,6 +17,3 @@ Files:
 Labeling convention:
 - SIMULATED = NVSim output (or direct equations from implemented FeDiode model in SubArray/MemCell).
 - MEASURED = anchors from device characterization/PPT summary (ON/OFF=4e3, nanosecond switching range, diameter-specific characterized devices).
-
-Caption note for Figure 5:
-- Figure 5a uses a logarithmic y-axis because SIMULATED values are array-level write energies while MEASURED anchors are device-level switching energies; this avoids visually collapsing the measured points near zero and preserves trend comparability.
