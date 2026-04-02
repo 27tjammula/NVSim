@@ -7,6 +7,7 @@ import csv
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 
 ROOT = Path(r"c:\Users\taara\Research\PAPER MATERIALS\NVSim")
@@ -273,43 +274,54 @@ def fig1_latency_vs_size(base_cell: Path):
         read_ns.append(met["read_latency_ns"])
         write_ns.append(met["write_latency_ns"])
 
-    # Measured anchor from PPT slide 4 statement: nanosecond-range switching
-    measured_anchor = {"size": 128, "latency_ns": 10.0}
+    # Reported switching is in the nanosecond regime; treat this as a regime
+    # band rather than an exact pointwise measurement.
+    regime_low_ns = 1.0
+    regime_high_ns = 100.0
 
-    fig, ax = plt.subplots(figsize=(4.6, 3.0))
-    ax.plot(sizes, read_ns, "-o", lw=1.6, ms=4, label="SIMULATED: Read latency (NVSim)")
-    ax.plot(sizes, write_ns, "-s", lw=1.6, ms=4, label="SIMULATED: Write latency (NVSim)")
-    ax.scatter(
-        [measured_anchor["size"]],
-        [measured_anchor["latency_ns"]],
-        marker="*",
-        s=90,
-        c="black",
-        label="MEASURED: Switching speed anchor (slide 4)",
-        zorder=5,
+    fig, ax = plt.subplots(figsize=(4.7, 3.0))
+    ax.fill_between(
+        sizes,
+        [regime_low_ns] * len(sizes),
+        [regime_high_ns] * len(sizes),
+        color="#cfe8c6",
+        alpha=0.45,
+        label="Reported switching regime: 1-100 ns",
     )
+    ax.plot(sizes, write_ns, "-s", lw=1.8, ms=4.5, color="#1f77b4", label="SIMULATED: Write latency (NVSim)")
+    ax.scatter([128], [write_ns[sizes.index(128)]], c="black", s=34, marker="o", label="2KB array point (128x128)", zorder=5)
     ax.set_xscale("log", base=2)
+    ax.set_yscale("log")
     ax.set_xlabel("Subarray size (rows = cols)")
-    ax.set_ylabel("Latency (ns)")
-    ax.set_title("Figure 1. Read/Write Latency vs Subarray Size")
-    ax.grid(alpha=0.25)
+    ax.set_ylabel("Write latency (ns)")
+    ax.set_title("Figure 1. Projected Write Latency vs Subarray Size")
+    ax.grid(alpha=0.25, which="both")
     place_legend_right(ax, ncol=1)
-    fig.subplots_adjust(left=0.14, right=0.67, top=0.88, bottom=0.20)
+    fig.subplots_adjust(left=0.14, right=0.63, top=0.88, bottom=0.20)
     fig.savefig(OUT_DIR / "Figure1_latency_vs_subarray.png", dpi=300, bbox_inches="tight")
     fig.savefig(OUT_DIR / "Figure1_latency_vs_subarray.pdf", bbox_inches="tight")
     plt.close(fig)
 
     save_csv(
         OUT_DIR / "Figure1_latency_vs_subarray.csv",
-        ["subarray_size", "read_latency_ns_simulated", "write_latency_ns_simulated", "latency_ns_measured_anchor"],
-        [(s, r, w, measured_anchor["latency_ns"] if s == measured_anchor["size"] else "") for s, r, w in zip(sizes, read_ns, write_ns)],
+        [
+            "subarray_size",
+            "read_latency_ns_simulated",
+            "write_latency_ns_simulated",
+            "switching_regime_low_ns",
+            "switching_regime_high_ns",
+            "is_2KB_point",
+        ],
+        [(s, r, w, regime_low_ns, regime_high_ns, "yes" if s == 128 else "no")
+         for s, r, w in zip(sizes, read_ns, write_ns)],
     )
 
 
 def fig2_energy_vs_vwrite():
     v_sweep = np.array([1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
     diameter_curves = {100: [], 200: [], 1000: []}
-    measured_points = {100: None, 200: None, 1000: None}
+    analytical_curves = {100: [], 200: [], 1000: []}
+    anchor_points = {100: None, 200: None, 1000: None}
 
     for d, cell_path in DIAMETER_TO_CELL.items():
         base = parse_cell(cell_path)
@@ -335,56 +347,57 @@ def fig2_energy_vs_vwrite():
             out = run_nvsim(cfg)
             met = parse_result_metrics(out)
             diameter_curves[d].append(met["write_dynamic_energy_pj"])
+            analytical_curves[d].append(e_total_pj)
 
             if abs(v - 3.0) < 1e-9:
-                measured_points[d] = e_total_pj
+                anchor_points[d] = e_total_pj
 
-    fig, ax = plt.subplots(figsize=(4.9, 3.1))
+    fig, axes = plt.subplots(1, 2, figsize=(7.1, 2.9))
     colors = {100: "#1f77b4", 200: "#2ca02c", 1000: "#d62728"}
     labels = {100: "100 nm", 200: "200 nm", 1000: "1 um"}
 
-    measured_x_offset = {100: 2.94, 200: 3.00, 1000: 3.06}
+    anchor_x_offset = {100: 2.94, 200: 3.00, 1000: 3.06}
+    ax = axes[0]
     for d in [100, 200, 1000]:
         ax.plot(v_sweep, diameter_curves[d], lw=1.8, color=colors[d], label=f"SIMULATED: {labels[d]}")
-        ax.scatter(
-            [measured_x_offset[d]],
-            [measured_points[d]],
-            color=colors[d],
-            marker="x",
-            s=92,
-            linewidths=2.2,
-            zorder=6,
-            label=f"MEASURED: {labels[d]} @ 3.0 V",
-        )
-
-    # Inset zoom near the operating point. Use a log y-scale so the 100 nm and
-    # 200 nm per-cell anchors do not collapse onto the baseline while still
-    # keeping the 1 um anchor in the same frame.
-    axins = ax.inset_axes([0.18, 0.55, 0.33, 0.38])
-    for d in [100, 200, 1000]:
-        axins.plot(v_sweep, diameter_curves[d], lw=1.0, color=colors[d])
-        axins.scatter(
-            [measured_x_offset[d]],
-            [measured_points[d]],
-            color=colors[d],
-            marker="x",
-            s=58,
-            linewidths=1.8,
-            zorder=7,
-        )
-    axins.set_xlim(2.85, 3.15)
-    axins.set_yscale("log")
-    axins.set_ylim(0.003, 1.0)
-    axins.set_title("Measured anchors (log y)", fontsize=7)
-    axins.tick_params(labelsize=7)
-    axins.grid(alpha=0.2)
-
     ax.set_xlabel("Write voltage (V)")
-    ax.set_ylabel("Write energy per access (pJ)")
-    ax.set_title("Figure 2. Write Energy vs Write Voltage")
+    ax.set_ylabel("Array-level write energy (pJ)")
+    ax.set_title("(a) NVSim array-level energy")
     ax.grid(alpha=0.25)
-    place_legend_right(ax, ncol=1)
-    fig.subplots_adjust(left=0.14, right=0.61, top=0.88, bottom=0.20)
+
+    ax = axes[1]
+    for d in [100, 200, 1000]:
+        ax.plot(v_sweep, analytical_curves[d], lw=1.8, color=colors[d], label=f"ANALYTICAL: {labels[d]}")
+        ax.scatter(
+            [anchor_x_offset[d]],
+            [anchor_points[d]],
+            color=colors[d],
+            marker="x",
+            s=78,
+            linewidths=1.8,
+            zorder=6,
+        )
+    ax.set_yscale("log")
+    ax.set_xlabel("Write voltage (V)")
+    ax.set_ylabel("Per-cell write energy (pJ)")
+    ax.set_title("(b) Per-cell analytical energy")
+    ax.grid(alpha=0.25, which="both")
+
+    fig.legend(
+        [
+            Line2D([0], [0], color=colors[100], lw=1.8),
+            Line2D([0], [0], color=colors[200], lw=1.8),
+            Line2D([0], [0], color=colors[1000], lw=1.8),
+            Line2D([0], [0], color="black", marker="x", lw=0, ms=8, markeredgewidth=1.8),
+        ],
+        ["100 nm", "200 nm", "1 um", "3.0 V per-cell anchor"],
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.03),
+        ncol=4,
+        frameon=True,
+    )
+    fig.suptitle("Figure 2. Write Energy vs Write Voltage", y=0.98, fontsize=10)
+    fig.subplots_adjust(top=0.82, bottom=0.24, left=0.10, right=0.98, wspace=0.33)
     fig.savefig(OUT_DIR / "Figure2_write_energy_vs_voltage.png", dpi=300, bbox_inches="tight")
     fig.savefig(OUT_DIR / "Figure2_write_energy_vs_voltage.pdf", bbox_inches="tight")
     plt.close(fig)
@@ -394,20 +407,58 @@ def fig2_energy_vs_vwrite():
         rows.append(
             (
                 v,
-                diameter_curves[100][i], measured_points[100] if abs(v - 3.0) < 1e-12 else "",
-                diameter_curves[200][i], measured_points[200] if abs(v - 3.0) < 1e-12 else "",
-                diameter_curves[1000][i], measured_points[1000] if abs(v - 3.0) < 1e-12 else "",
+                diameter_curves[100][i], analytical_curves[100][i], anchor_points[100] if abs(v - 3.0) < 1e-12 else "",
+                diameter_curves[200][i], analytical_curves[200][i], anchor_points[200] if abs(v - 3.0) < 1e-12 else "",
+                diameter_curves[1000][i], analytical_curves[1000][i], anchor_points[1000] if abs(v - 3.0) < 1e-12 else "",
             )
         )
     save_csv(
         OUT_DIR / "Figure2_write_energy_vs_voltage.csv",
         [
             "write_voltage_V",
-            "energy_100nm_pj_simulated", "energy_100nm_pj_measured_anchor",
-            "energy_200nm_pj_simulated", "energy_200nm_pj_measured_anchor",
-            "energy_1um_pj_simulated", "energy_1um_pj_measured_anchor",
+            "energy_100nm_pj_simulated", "energy_100nm_pj_analytical_cell", "energy_100nm_pj_measured_anchor",
+            "energy_200nm_pj_simulated", "energy_200nm_pj_analytical_cell", "energy_200nm_pj_measured_anchor",
+            "energy_1um_pj_simulated", "energy_1um_pj_analytical_cell", "energy_1um_pj_measured_anchor",
         ],
         rows,
+    )
+
+
+def fig6_array_to_device_energy_ratio():
+    fig2_rows = list(csv.DictReader((OUT_DIR / "Figure2_write_energy_vs_voltage.csv").read_text().splitlines()))
+    v_sweep = np.array([float(r["write_voltage_V"]) for r in fig2_rows])
+    ratios = {
+        100: np.array([float(r["energy_100nm_pj_simulated"]) / float(r["energy_100nm_pj_analytical_cell"]) for r in fig2_rows]),
+        200: np.array([float(r["energy_200nm_pj_simulated"]) / float(r["energy_200nm_pj_analytical_cell"]) for r in fig2_rows]),
+        1000: np.array([float(r["energy_1um_pj_simulated"]) / float(r["energy_1um_pj_analytical_cell"]) for r in fig2_rows]),
+    }
+
+    fig, ax = plt.subplots(figsize=(4.8, 3.0))
+    colors = {100: "#1f77b4", 200: "#2ca02c", 1000: "#d62728"}
+    labels = {100: "100 nm", 200: "200 nm", 1000: "1 um"}
+    for d in [100, 200, 1000]:
+        ax.plot(v_sweep, ratios[d], "-o", lw=1.8, ms=4, color=colors[d], label=labels[d])
+
+    ax.set_yscale("log")
+    ax.set_xlabel("Write voltage (V)")
+    ax.set_ylabel("Array/device energy ratio")
+    ax.set_title("Figure 6. Array-to-Device Energy Ratio")
+    ax.grid(alpha=0.25, which="both")
+    place_legend_right(ax, ncol=1)
+    fig.subplots_adjust(left=0.14, right=0.66, top=0.88, bottom=0.20)
+    fig.savefig(OUT_DIR / "Figure6_array_to_device_energy_ratio.png", dpi=300, bbox_inches="tight")
+    fig.savefig(OUT_DIR / "Figure6_array_to_device_energy_ratio.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+    save_csv(
+        OUT_DIR / "Figure6_array_to_device_energy_ratio.csv",
+        [
+            "write_voltage_V",
+            "ratio_100nm_array_to_device",
+            "ratio_200nm_array_to_device",
+            "ratio_1um_array_to_device",
+        ],
+        [(v_sweep[i], ratios[100][i], ratios[200][i], ratios[1000][i]) for i in range(len(v_sweep))],
     )
 
 
@@ -523,7 +574,7 @@ def fig4_read_margin_vs_size(cell_200: Path):
     vread = c["vread"]
 
     # Worst-case sneak model for FeDiode crossbar (derived from SubArray FeDiode branch)
-    sizes = np.array([16, 32, 64, 128, 256, 512, 1024])
+    sizes = np.array([1, 8, 16, 32, 64, 128, 256, 512, 1024])
     selected_current = vread / ron
     margin_pct = []
 
@@ -539,7 +590,11 @@ def fig4_read_margin_vs_size(cell_200: Path):
     ax.plot(sizes, margin_pct, "-o", lw=1.8, ms=4, label="SIMULATED: Read margin (worst-case sneak model)")
     ax.axhline(50.0, color="red", ls="--", lw=1.2, label="Required threshold: 50%")
 
+    idx_single = int(np.where(sizes == 1)[0][0])
+    idx_8x8 = int(np.where(sizes == 8)[0][0])
     idx_2kb = int(np.where(sizes == 128)[0][0])
+    ax.scatter([1], [margin_pct[idx_single]], c="#9467bd", s=34, marker="D", label="Single-device point (1×1)")
+    ax.scatter([8], [margin_pct[idx_8x8]], c="#8c564b", s=34, marker="^", label="8×8 array point")
     ax.scatter([128], [margin_pct[idx_2kb]], c="black", s=36, marker="s", label="2KB array point (128×128)")
 
     ax.set_xscale("log", base=2)
@@ -568,8 +623,25 @@ def fig4_read_margin_vs_size(cell_200: Path):
 
     save_csv(
         OUT_DIR / "Figure4_read_margin_vs_size.csv",
-        ["array_size", "read_margin_percent_simulated", "threshold_percent", "is_2KB_point"],
-        [(int(s), float(m), 50.0, "yes" if int(s) == 128 else "no") for s, m in zip(sizes, margin_pct)],
+        [
+            "array_size",
+            "read_margin_percent_simulated",
+            "threshold_percent",
+            "is_single_device_point",
+            "is_8x8_point",
+            "is_2KB_point",
+        ],
+        [
+            (
+                int(s),
+                float(m),
+                50.0,
+                "yes" if int(s) == 1 else "no",
+                "yes" if int(s) == 8 else "no",
+                "yes" if int(s) == 128 else "no",
+            )
+            for s, m in zip(sizes, margin_pct)
+        ],
     )
 
 
@@ -652,17 +724,35 @@ Files:
 - Figure3_onoff_vs_vfe.(png|pdf)
 - Figure4_read_margin_vs_size.(png|pdf)
 - Figure5_energy_latency_vs_diameter.(png|pdf)
+- Figure6_array_to_device_energy_ratio.(png|pdf)
 - Figure1_latency_vs_subarray.csv
 - Figure2_write_energy_vs_voltage.csv
 - Figure3_onoff_vs_vfe.csv
 - Figure4_read_margin_vs_size.csv
 - Figure5_energy_latency_vs_diameter.csv
+- Figure6_array_to_device_energy_ratio.csv
 - Slide6_comparison_updated_with_nvsim.csv
 - self_consistency_check.txt
 
 Labeling convention:
 - SIMULATED = NVSim output (or direct equations from implemented FeDiode model in SubArray/MemCell).
 - MEASURED = anchors from device characterization/PPT summary (ON/OFF=4e3, nanosecond switching range, diameter-specific characterized devices).
+
+Suggested interpretation:
+- Figure 1 is best treated as a qualitative NVSim latency trend versus subarray size, not as a strong measurement-backed validation figure, because the current source set does not provide matched experimental read and write speed data.
+- Figure 2 is best treated as a simulation/theory trend figure with per-cell analytical anchors at 3 V. The simulated array-access energy and the characterized single-device energy are intentionally different quantities, so the plot should not be over-claimed as a direct simulation-to-measurement match.
+- Figure 3 is the strongest theory-to-measurement bridge in the current set: the MW model and WKB transport trend both connect cleanly to the measured ON/OFF anchor.
+- Figure 4 is an array-feasibility/supporting figure showing how read margin evolves from the single-device limit through 8×8 and up to the 2 KB target array.
+- Figure 5 is useful as a scaling/supporting figure, but its energy panel mixes array-level simulated energy with device-level measured anchors and should be described accordingly.
+- Figure 6 is a useful supporting figure when discussing Figure 2, because it makes the array/device energy gap explicit instead of leaving it implicit.
+
+Draft caption language:
+- Figure 1. NVSim-projected read and write latency as a function of subarray size for the FeDiode crossbar. The write latency remains in the nanosecond regime across the evaluated organizations; this panel is intended to illustrate array-scaling behavior rather than provide a direct experiment-to-simulation comparison of both read and write speed.
+- Figure 2. NVSim-projected write energy per access versus write voltage for 100 nm, 200 nm, and 1 um FeDiode devices. Cross markers at 3 V indicate per-cell analytical energy anchors derived from the extracted device parameters. Because the simulated curves are array-level access energies whereas the anchors are device-level quantities, the panel is intended to emphasize trend consistency across voltage and device size.
+- Figure 3. ON/OFF ratio as a function of ferroelectric-layer voltage from the memory-window model at multiple coercive fields, together with a WKB transport estimate and the measured ON/OFF anchor. The close agreement at the operating point provides the most direct connection between the FeDiode model stack and the experimentally observed rectification level.
+- Figure 4. NVSim-based read-margin projection for the FeDiode crossbar under a worst-case sneak-path condition. The single-device limit, an 8×8 array, and the 128×128 (2 KB) target organization are highlighted, showing that the projected read margin remains above the 50% criterion throughout the evaluated range.
+- Figure 5. Projected write-energy and write-latency scaling with device diameter. The energy panel compares NVSim array-level write energy with device-level characterized energy anchors, while the latency panel shows the comparatively weak diameter dependence of the projected write latency in the present model.
+- Figure 6. Ratio of NVSim array-level write energy to per-cell analytical write energy as a function of write voltage. This panel makes explicit the overhead between device-level and array-level energy and helps explain why the two quantities should not be interpreted as a direct one-to-one match in Figure 2.
 """
     )
 
@@ -1020,6 +1110,7 @@ def write_self_consistency_report():
 def main():
     fig1_latency_vs_size(DIAMETER_TO_CELL[200])
     fig2_energy_vs_vwrite()
+    fig6_array_to_device_energy_ratio()
     fig3_onoff_vs_vfe(DIAMETER_TO_CELL[200])
     fig4_read_margin_vs_size(DIAMETER_TO_CELL[200])
     fig5_energy_latency_vs_diameter()
@@ -1031,4 +1122,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

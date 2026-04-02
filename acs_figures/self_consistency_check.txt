@@ -11,8 +11,8 @@ Reference: Toprasertpong et al. IEEE TED 2022 (Eqs. 8/9/10),
 
 3) MW model (Eqs. 8/9/10) reproduces ION/IOFF=4e3 within 20 %: PASS
    Config: 2 KB / 200 nm / 128×128  (same config as Figure 1/5)
-   Vm at Vwrite (last MW table row) = 2.2131 V
-   MW_minor at Vwrite               = 1.8405 V
+   Vm at Vwrite (last MW table row) = 2.1667 V
+   MW_minor at Vwrite               = 1.8125 V
    ION/IOFF_op (n_eff-calibrated)   = 4000
    Target                           = 4000, error = 0.00%
 
@@ -22,46 +22,46 @@ Reference: Toprasertpong et al. IEEE TED 2022 (Eqs. 8/9/10),
 
 5) Vpol formula (Fe-NVSim transport mapping): PASS
    Vpol = 2·Pr/(ε₀·(ε_FE/t_FE + ε_IL/t_IL))
-   Analytical = 28.706 V
-   NVSim      = 28.706 V  (must agree within 1 %)
+   Analytical = 29.322 V
+   NVSim      = 29.322 V  (must agree within 1 %)
 
 6) Series capacitance C' matches cell file: PASS
-   C' = ε₀/(t_FE/ε_FE + t_IL/ε_IL) = 10.4506 mF/m²  (ref: 10.451 mF/m²)
-   C_fwd (calc) = 3.2832e-16 F
-   C_fwd (cell) = 3.2830e-16 F  (must agree within 1 %)
+   C' = ε₀/(t_FE/ε_FE + t_IL/ε_IL) = 10.2313 mF/m²  (ref: 10.451 mF/m²)
+   C_fwd (calc) = 3.2143e-16 F
+   C_fwd (cell) = 3.2140e-16 F  (must agree within 1 %)
 
 7) WKB transport model matches measured ON/OFF within 20 %: PASS
    Φ_B = WF_Ti − χ_HfO2 = 4.33 − 2.00 = 2.33 eV
    m*_HfO2 = 0.11 m_e,  t_IL = 4.0 nm
-   ON/OFF_WKB = 4284.9  (target 4000, ±20 %)
+   ON/OFF_WKB = 3752.4  (target 4000, ±20 %)
 
 8) Vm/Vwrite voltage division: PASS
-   Vm_expected = 3.0 * (tFE/eFE)/(tFE/eFE + tIL/eIL) = 2.2131 V
-   Vm from NVSim (last MW row) = 2.2131 V  (must agree within 2 %)
+   Vm_expected = 3.0 * (tFE/eFE)/(tFE/eFE + tIL/eIL) = 2.1667 V
+   Vm from NVSim (last MW row) = 2.1667 V  (must agree within 2 %)
 
 9) MW sweep monotone and MW_minor < MW_MFS: PASS
    Monotonically non-decreasing (10 rows): yes
    MW_MFS (ideal MFS, Eq. 8) = 37.3537 V
-   MW_minor at Vwrite        = 1.8405 V  (must be < MW_MFS)
+   MW_minor at Vwrite        = 1.8125 V  (must be < MW_MFS)
 
 10) n_eff ideality factor in physical range [1, 20]: PASS
-    n_eff = MW_minor / (kT·ln(ION/IOFF)) = 1.8405 / (0.02585·ln(4000)) = 8.584
+    n_eff = MW_minor / (kT·ln(ION/IOFF)) = 1.8125 / (0.02585·ln(4000)) = 8.454
 
 11) C_fwd area scaling r² across diameters: PASS
     C200/C100 = 4.000  (expected 4.000, ±5 %)
     C1um/C100 = 100.000  (expected 100.000, ±5 %)
 
 12) Fig 2 energy at 3V matches cell file within 1 %: PASS
-    100 nm: Fig2 = 0.0066292 pJ, cell = 0.006629 pJ, err = 0.00%
-    200 nm: Fig2 = 0.0265168 pJ, cell = 0.026517 pJ, err = 0.00%
-    1000 nm: Fig2 = 0.66292 pJ, cell = 0.66292 pJ, err = 0.00%
+    100 nm: Fig2 = 0.00661369 pJ, cell = 0.006629 pJ, err = 0.23%
+    200 nm: Fig2 = 0.0264548 pJ, cell = 0.026517 pJ, err = 0.23%
+    1000 nm: Fig2 = 0.661369 pJ, cell = 0.66292 pJ, err = 0.23%
 
 13) NVSim array write energy ≥ per-cell write energy: PASS
     100 nm: array = 4.96 pJ, cell = 0.006629 pJ  (≥)
-    200 nm: array = 11.79 pJ, cell = 0.02652 pJ  (≥)
-    1000 nm: array = 134.5 pJ, cell = 0.6629 pJ  (≥)
+    200 nm: array = 11.78 pJ, cell = 0.02652 pJ  (≥)
+    1000 nm: array = 134.3 pJ, cell = 0.6629 pJ  (≥)
 
 14) E_switch fraction > 50 % at Vwrite=3V (switching-dominated): PASS
-    100 nm: E_sw fraction = 88.9%
-    200 nm: E_sw fraction = 88.9%
-    1000 nm: E_sw fraction = 88.9%
+    100 nm: E_sw fraction = 89.1%
+    200 nm: E_sw fraction = 89.1%
+    1000 nm: E_sw fraction = 89.1%

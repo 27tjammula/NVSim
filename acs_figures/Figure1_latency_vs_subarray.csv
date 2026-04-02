@@ -1,7 +1,7 @@
-subarray_size,read_latency_ns_simulated,write_latency_ns_simulated,latency_ns_measured_anchor
-16,0.09366,20.09,
-32,0.13626,20.13,
-64,0.16263,20.16,
-128,0.23353000000000002,20.23,10.0
-256,0.27763,20.27,
-512,0.37096,20.4,
+subarray_size,read_latency_ns_simulated,write_latency_ns_simulated,switching_regime_low_ns,switching_regime_high_ns,is_2KB_point
+16,0.09366,20.09,1.0,100.0,no
+32,0.13626,20.13,1.0,100.0,no
+64,0.16263,20.16,1.0,100.0,no
+128,0.23353000000000002,20.23,1.0,100.0,yes
+256,0.27763,20.27,1.0,100.0,no
+512,0.37096,20.4,1.0,100.0,no

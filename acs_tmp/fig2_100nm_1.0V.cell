@@ -12,11 +12,11 @@
 #   Roff = Ron * 4e3 = 4 Gohm
 #
 # Junction capacitance model (corrected permittivities from github.com/krishkc5/ferroelectric-diode-model):
-#   eFE = 16 (AlScN, materials.py baseline), eIL = 18 (HfO2 refined)
+#   eFE = 16 (AlScN, materials.py baseline), eIL = 16.64 (HfO2 from extracted constants)
 #   Series stack: 1/C' = tIL/(eps0*eIL) + tFE/(eps0*eFE)
-#               = 4e-9/(8.854e-12*18) + 10e-9/(8.854e-12*16) = 95.69 m^2/F
-#   C' = 10.451 mF/m^2
-#   C_fwd = 10.451e-3 * A = 8.208e-17 F
+#               = 4e-9/(8.854e-12*16.64) + 10e-9/(8.854e-12*16) = 97.74 m^2/F
+#   C' = 10.231 mF/m^2
+#   C_fwd = 10.231e-3 * A = 8.036e-17 F
 #   C_rev = 0.5 * C_fwd = 4.104e-17 F
 #
 # Write energy (provided directly, bypass CalculateWriteEnergy):
@@ -43,25 +43,25 @@
 -ResetMode: voltage
 -ResetVoltage (V): 1.0
 -ResetPulse (ns): 10
--ResetEnergy (pJ): 0.00597256523
+-ResetEnergy (pJ): 0.00597084258
 
 -SetMode: voltage
 -SetVoltage (V): -1.0
 -SetPulse (ns): 10
--SetEnergy (pJ): 0.00597256523
+-SetEnergy (pJ): 0.00597084258
 
 -AccessType: None
 -VoltageDropAccessDevice (V): 0
 
--CapacitanceFeDiode (F): 8.208e-17
--CapacitanceFeDiodeReverse (F): 4.104e-17
+-CapacitanceFeDiode (F): 8.036e-17
+-CapacitanceFeDiodeReverse (F): 4.018e-17
 
 -PolarizationRemnant (uC/cm^2): 15.0
 -PolarizationSpontaneous (uC/cm^2): 18.0
 -CoerciveField (MV/cm): 2.5
 -FerroelectricThickness (nm): 10
 -InterlayerThickness (nm): 4
--InterlayerPermittivity: 18
+-InterlayerPermittivity: 16.64
 -FerroelectricPermittivity: 16
 -FerroelectricMaterial: AlScN
 -Eta: 0.833

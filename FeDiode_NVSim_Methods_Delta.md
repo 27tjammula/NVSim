@@ -68,6 +68,20 @@ Implemented in [`SubArray.cpp`](./SubArray.cpp):
 - Total:
   - `E_total = E_switch + E_charge`
 
+### Stack/material constants used in current workspace
+- MFIS stack assumed in the FeDiode cell files:
+  - `Ti/Au | 4 nm HfOx | 10 nm AlScN | 50 nm Al`
+- Permittivity choices currently used:
+  - `eFE = 16` for AlScN
+  - `eIL = 16.64` for HfO2/HfOx
+- Provenance:
+  - The `eIL = 16.64` value was updated to match constants extracted from the
+    `krishkc5/ferroelectric-diode-model` source, replacing the earlier local
+    rounded value of `18`.
+- Consequence:
+  - Stored FeDiode junction capacitances in the `.cell` files were updated to
+    remain consistent with the revised series-capacitance calculation.
+
 ## 4) Memory-Window Model for MFIS FeDiode
 
 Implemented in [`MemCell.cpp`](./MemCell.cpp) as `CalculateMemoryWindow()`.
@@ -124,4 +138,3 @@ From `self_consistency_check.txt`:
 - Competitor write-energy/read-latency values in the comparison table were marked `N/A` where not extractable from locally available slide text.
 - Figure 5a uses log y-axis because simulated points are array-level energies while measured anchors are device-level energies.
 - Figure 5b intentionally omits diameter-specific measured latency points because they were not available as resolved numeric data in the local source set.
-
